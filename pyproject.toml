@@ -7,11 +7,13 @@ name = "sparc-agi"
 version = "0.1.0"
 description = "Synthetic puzzle generation for ARC-AGI"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 authors = [
   { name = "Serhii Hrynko", email = "sergey.greenko@gmail.com" },
 ]
-dependencies = []
+dependencies = [
+  "cattrs>=24.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/ElvenMonky/sparc-agi"

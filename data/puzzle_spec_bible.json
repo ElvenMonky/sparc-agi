@@ -6,9 +6,9 @@
     },
     "input": { "object.sprite": { "size": { "width": 2, "height": 2 } } },
     "skeleton": [{
-      "type": "Rotate", "input": ["a", 0]
+      "Rotate": ["a", 0]
     },{
-      "type": "ArrangeObjects", "input": ["b", 0, 1]
+      "ArrangeObjects": ["b", 0, 1]
     }]
   }
 }
