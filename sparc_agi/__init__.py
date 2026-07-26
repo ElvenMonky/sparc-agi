@@ -1,22 +1,27 @@
 """sparc-agi: synthetic puzzle generation for ARC-AGI."""
 
-from sparc_agi.puzzle_spec import (
-    PuzzleSpec,
-    PuzzleSpecBible,
+from sparc_agi.puzzle import (
+    GeneratedPuzzle,
+    Puzzle,
+    PuzzleDescription,
+    PuzzleSource,
+    SampleCounts,
     SpecError,
     format_transformations,
-    load_bible,
+    load_source,
     validate_spec,
 )
 
 __version__ = "0.1.0"
 __all__ = [
-    "PuzzleSpec",
-    "PuzzleSpecBible",
+    "GeneratedPuzzle",
+    "Puzzle",
+    "PuzzleDescription",
+    "PuzzleSource",
+    "SampleCounts",
     "SpecError",
     "format_transformations",
-    "load_bible",
+    "load_source",
     "validate_spec",
     "__version__",
 ]
-

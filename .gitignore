@@ -38,3 +38,7 @@ htmlcov/
 # Env / secrets
 .env
 .env.*
+
+# Generated puzzle runs (keep directory via .gitkeep)
+temp/*
+!temp/.gitkeep

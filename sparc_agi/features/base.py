@@ -1,6 +1,6 @@
 """Feature registry and shared nested value types.
 
-Feature specs in the bible are single-key tagged objects::
+Feature specs in the source are single-key tagged objects::
 
     { "<feature.name>": <payload> }
 
@@ -13,6 +13,7 @@ Register a new feature with ``@register_feature("feature.name")``. If
 field (e.g. ``{ "orientation": 12 }`` → ``Orientation(value=12)``).
 """
 
+import random
 from dataclasses import MISSING, dataclass, field, fields, replace
 from typing import Any, Callable, ClassVar, Self, TypeVar
 
@@ -24,14 +25,6 @@ FEATURE_REGISTRY: dict[str, type[Feature]] = {}
 def feature_family(name: str) -> str:
     """Return the feature family for a registry tag (``arrangement.grid`` → ``arrangement``)."""
     return name.split(".", 1)[0]
-
-
-@dataclass
-class Sequence:
-    cycle: list[int]
-
-    def describe(self) -> str:
-        return f"cycle {self.cycle}"
 
 
 @dataclass
@@ -82,9 +75,25 @@ class Feature:
             return f"{self.__feature_name__} {val_text}"
         return self.__feature_name__
 
+    def instantiate(self, rng: random.Random) -> Any:
+        """Sample a concrete value for this feature.
+
+        Scalars pick an ``int`` from their ``Range``. Composites instantiate
+        children and build their own concrete representation.
+        """
+        if type(self).__feature_scalar__:
+            from sparc_agi.features.range import Range
+
+            value_fields = [f for f in fields(type(self)) if f.name not in ("source", "alias")]
+            val = getattr(self, value_fields[0].name)
+            if isinstance(val, Range):
+                return val.sample(rng)
+            raise TypeError(f"{type(self).__name__} scalar value is not a Range")
+        raise NotImplementedError(f"{type(self).__name__}.instantiate() is not implemented")
+
 
 def register_feature(name: str, *, scalar: bool = False) -> Callable[[type[F]], type[F]]:
-    """Register a Feature subclass under a bible tag name."""
+    """Register a Feature subclass under a source tag name."""
 
     def decorator(cls: type[F]) -> type[F]:
         if not issubclass(cls, Feature):

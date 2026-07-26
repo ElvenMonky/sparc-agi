@@ -1,10 +1,11 @@
-"""PuzzleSpec dataclasses and cattrs converter for the puzzle spec bible.
+"""Puzzle dataclasses and cattrs converter for puzzle source documents.
 
-Bible shape (per puzzle id)::
+Source shape (per puzzle id)::
 
     {
       "cache": { "<key>": { "<feature.name>": <payload> }, ... },
       "input": { "<feature.name>": <payload> },
+      "samples": { "train": <int>, "test": <int> },
       "skeleton": [
         { "<Transform>": [<wire>, ...] },
         // or equivalently:
@@ -16,16 +17,18 @@ New features / transformations only need a registered class; this module's
 hooks resolve tags through the registries and do not hard-code type names.
 """
 
+from __future__ import annotations
+
 import json
+import random
 from dataclasses import MISSING, dataclass, fields, is_dataclass
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Union, get_type_hints
 
 import cattrs
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
-from sparc_agi.features import FEATURE_REGISTRY, Feature, Size
-from sparc_agi.features.footprint import Footprint
+from sparc_agi.features import FEATURE_REGISTRY, Feature, Size, feature_family
 from sparc_agi.features.height import Height
 from sparc_agi.features.range import Range
 from sparc_agi.features.width import Width
@@ -33,7 +36,7 @@ from sparc_agi.transformations import TRANSFORMATION_REGISTRY, Transformation, W
 
 
 class SpecError(ValueError):
-    """Puzzle spec failed structural or type validation."""
+    """Puzzle failed structural or type validation."""
 
 converter = cattrs.Converter()
 
@@ -51,13 +54,12 @@ def _is_plain_dataclass(t: Any) -> bool:
     return (
         is_dataclass(t)
         and isinstance(t, type)
-        and t not in (Size, Footprint, Range)
+        and t not in (Size, Range)
         and not issubclass(t, (Feature, Transformation))
     )
 
 
-# Plain nested dataclasses on demand. Size / Footprint / Range / Features have
-# dedicated hooks below.
+# Plain nested dataclasses on demand. Size / Range / Features have dedicated hooks.
 converter.register_structure_hook_factory(
     _is_plain_dataclass,
     lambda t: make_dict_structure_fn(t, converter),
@@ -145,20 +147,6 @@ converter.register_structure_hook(Size, structure_size)
 converter.register_unstructure_hook(Size, unstructure_size)
 
 
-def structure_footprint(obj: Any, _type: type) -> Footprint:
-    if not isinstance(obj, dict) or "size" not in obj:
-        raise ValueError(f"footprint must be an object with 'size', got {obj!r}")
-    return Footprint(size=converter.structure(obj["size"], Size))
-
-
-def unstructure_footprint(obj: Footprint) -> dict[str, Any]:
-    return {"size": converter.unstructure(obj.size)}
-
-
-converter.register_structure_hook(Footprint, structure_footprint)
-converter.register_unstructure_hook(Footprint, unstructure_footprint)
-
-
 def _require_single_tag(obj: Any, kind: str) -> tuple[str, Any]:
     if not isinstance(obj, dict) or len(obj) != 1:
         raise ValueError(f"{kind} must be a single-key object, got {obj!r}")
@@ -168,11 +156,50 @@ def _require_single_tag(obj: Any, kind: str) -> tuple[str, Any]:
     return tag, payload
 
 
+def _normalize_composite_payload(payload: dict[str, Any], cls: type[Feature]) -> dict[str, Any]:
+    """Map flat child tags onto field names.
+
+    Source form::
+
+        "arrangement": {
+          "footprint.grid": { ... },
+          "sequence": { "cycle": [0, 1, 0] }
+        }
+
+    becomes field-keyed ``footprint: { "footprint.grid": ... }, sequence: ...``
+    so polymorphic ``Feature`` slots keep their kind tag.
+    """
+    hints = get_type_hints(cls)
+    field_names = {f.name for f in fields(cls) if f.name not in ("source", "alias")}
+    out = dict(payload)
+    for key in list(out):
+        if key in field_names or key not in FEATURE_REGISTRY:
+            continue
+        family = feature_family(key)
+        if family not in field_names or family in out:
+            continue
+        child_payload = out.pop(key)
+        ann = hints.get(family)
+        if ann is Feature:
+            out[family] = {key: child_payload}
+        else:
+            expected = getattr(ann, "__feature_name__", None)
+            out[family] = child_payload if expected == key else {key: child_payload}
+    return out
+
+
 def _structure_concrete(payload: Any, cls: type) -> Any:
     """Structure into a concrete dataclass without re-entering tagged-union hooks."""
+    if (
+        isinstance(payload, dict)
+        and isinstance(cls, type)
+        and issubclass(cls, Feature)
+        and not cls.__feature_scalar__
+    ):
+        payload = _normalize_composite_payload(payload, cls)
     kwargs: dict[str, Any] = {}
-    if issubclass(cls, Feature):
-        # Provenance / aliases are runtime-only; never read from the bible.
+    if isinstance(cls, type) and issubclass(cls, Feature):
+        # Provenance / aliases are runtime-only; never read from the source JSON.
         kwargs["source"] = override(omit=True)
         kwargs["alias"] = override(omit=True)
     return make_dict_structure_fn(cls, converter, **kwargs)(payload, cls)
@@ -193,29 +220,32 @@ def structure_feature(obj: Any, _type: type) -> Feature:
 
 def _unstructure_composite_payload(obj: Feature) -> dict[str, Any]:
     """Unstructure composite feature fields; nested scalars stay bare (untagged)."""
+    cls = type(obj)
+    hints = get_type_hints(cls)
     payload: dict[str, Any] = {}
-    for f in fields(type(obj)):
+    for f in fields(cls):
         if f.name in ("source", "alias", "pool_origins"):
             continue
         val = getattr(obj, f.name)
         if val is None:
             continue
-        # Omit nested default Features (e.g. Group.spacing, Sprite.color), but keep
-        # default Range fields that make up a feature's own payload.
-        if (
-            f.default_factory is not MISSING
-            and isinstance(val, Feature)
-            and val == f.default_factory()
-        ):
+        # Omit nested defaults (e.g. Group.spacing, Sequence.prefix).
+        if f.default_factory is not MISSING and val == f.default_factory():
+            continue
+        if f.default is not MISSING and val == f.default:
             continue
         if isinstance(val, Feature) and type(val).__feature_scalar__:
             payload[f.name] = converter.unstructure(getattr(val, _scalar_value_field(type(val))))
         elif isinstance(val, Feature):
             tagged = unstructure_feature(val)
             ((tag, inner),) = tagged.items()
-            # Field name matches feature tag (e.g. spacing) → bare payload; otherwise keep tag
-            # so kinds like arrangement.grid stay distinguishable.
-            payload[f.name] = inner if tag == f.name else tagged
+            # Field name matches tag → bare payload; polymorphic Feature slot → flat tag.
+            if tag == f.name:
+                payload[f.name] = inner
+            elif hints.get(f.name) is Feature:
+                payload[tag] = inner
+            else:
+                payload[f.name] = tagged
         else:
             payload[f.name] = converter.unstructure(val)
     return payload
@@ -271,7 +301,7 @@ def structure_transformation(obj: Any, _type: type) -> Transformation:
 
 
 def unstructure_transformation(obj: Transformation) -> dict[str, Any]:
-    """Emit the explicit ``{type, input}`` form used in the bible."""
+    """Emit the explicit ``{type, input}`` form used in the source."""
     cls = type(obj)
     return {
         "type": cls.__transformation_name__,
@@ -303,10 +333,38 @@ converter.register_structure_hook(WireRef, _structure_wire_ref)
 
 
 @dataclass
-class PuzzleSpec:
+class SampleCounts:
+    """How many train/test samples to instantiate for a puzzle."""
+
+    train: int
+    test: int = 0
+
+
+@dataclass
+class PuzzleDescription:
+    """Natural-language strings for the puzzle input and transformation steps."""
+
+    input: list[str]
+    steps: list[str]
+
+
+@dataclass
+class GeneratedPuzzle:
+    """Fully generated puzzle in ARC-compatible challenge/solution form."""
+
+    cache: dict[str, Any]
+    challenge: dict[str, list[dict[str, Any]]]
+    solution: list[Any]
+    steps: dict[str, list[list[Any]]]
+    description: PuzzleDescription
+
+
+@dataclass
+class Puzzle:
     cache: dict[str, Feature]
     input: Feature
     skeleton: list[Transformation]
+    samples: SampleCounts
 
     def validate(self) -> None:
         """Validate wiring, feature-family matches, and that every value is used."""
@@ -319,6 +377,73 @@ class PuzzleSpec:
     def describe_transformations(self, outputs: list[Feature] | None = None) -> str:
         """Imperative description of each skeleton transformation step."""
         return format_transformations(self, outputs)
+
+    def description_lists(self, outputs: list[Feature] | None = None) -> PuzzleDescription:
+        """Input + step descriptions as string lists (no ``Steps:`` / numbering)."""
+        results = outputs if outputs is not None else self.trace()
+        if outputs is not None:
+            self._assign_entry_aliases()
+        step_lines: list[str] = []
+        prior: list[Feature] = []
+        for i, (step, out) in enumerate(zip(self.skeleton, results, strict=True), start=1):
+            resolved = [self.resolve(wire, prior) for wire in step.inputs]
+            step_lines.append(step.describe(resolved, out, step=i))
+            prior.append(out)
+        return PuzzleDescription(input=[self.describe_input()], steps=step_lines)
+
+    def generate(self, rng: random.Random | None = None) -> GeneratedPuzzle:
+        """Instantiate cache once, then per-sample inputs through the skeleton."""
+        from sparc_agi.grid import to_arc_grid
+
+        self.validate()
+        rng = rng if rng is not None else random.Random()
+        feature_outputs = self.trace()
+        description = self.description_lists(feature_outputs)
+        cache = {key: feat.instantiate(rng) for key, feat in self.cache.items()}
+
+        def run_sample(input_value: Any) -> list[Any]:
+            outputs: list[Any] = []
+            for step_index, step in enumerate(self.skeleton):
+                resolved = [
+                    self.resolve_instance(wire, cache, input_value, outputs)
+                    for wire in step.inputs
+                ]
+                try:
+                    outputs.append(step.instantiate(resolved, step=step_index + 1))
+                except Exception as exc:
+                    name = type(step).__transformation_name__
+                    raise SpecError(
+                        f"step {step_index} ({name}) instantiate failed: {exc}"
+                    ) from exc
+            return outputs
+
+        train_challenge: list[dict[str, Any]] = []
+        train_steps: list[list[Any]] = []
+        for _ in range(self.samples.train):
+            inp = self.input.instantiate(rng)
+            outs = run_sample(inp)
+            train_challenge.append(
+                {"input": to_arc_grid(inp), "output": to_arc_grid(outs[-1])}
+            )
+            train_steps.append([to_arc_grid(out) for out in outs])
+
+        test_challenge: list[dict[str, Any]] = []
+        test_steps: list[list[Any]] = []
+        solution: list[Any] = []
+        for _ in range(self.samples.test):
+            inp = self.input.instantiate(rng)
+            outs = run_sample(inp)
+            test_challenge.append({"input": to_arc_grid(inp)})
+            test_steps.append([to_arc_grid(out) for out in outs])
+            solution.append(to_arc_grid(outs[-1]))
+
+        return GeneratedPuzzle(
+            cache=cache,
+            challenge={"train": train_challenge, "test": test_challenge},
+            solution=solution,
+            steps={"train": train_steps, "test": test_steps},
+            description=description,
+        )
 
     def resolve(self, wire: WireRef, outputs: list[Feature]) -> Feature:
         """Resolve a wire ref against cache, puzzle input, or prior step outputs."""
@@ -333,6 +458,30 @@ class PuzzleSpec:
             src = wire - 1
             if src < 0 or src >= len(outputs):
                 raise SpecError(f"wire {wire} is not available (have {len(outputs)} step output(s))")
+            return outputs[src]
+        raise SpecError(f"wire ref must be str or int, got {wire!r}")
+
+    def resolve_instance(
+        self,
+        wire: WireRef,
+        cache: dict[str, Any],
+        input_value: Any,
+        outputs: list[Any],
+    ) -> Any:
+        """Resolve a wire ref against instantiated cache / input / step outputs."""
+        if isinstance(wire, str):
+            try:
+                return cache[wire]
+            except KeyError as exc:
+                raise SpecError(f"unknown cache key {wire!r}") from exc
+        if isinstance(wire, int) and not isinstance(wire, bool):
+            if wire == 0:
+                return input_value
+            src = wire - 1
+            if src < 0 or src >= len(outputs):
+                raise SpecError(
+                    f"wire {wire} is not available (have {len(outputs)} step output(s))"
+                )
             return outputs[src]
         raise SpecError(f"wire ref must be str or int, got {wire!r}")
 
@@ -360,36 +509,36 @@ class PuzzleSpec:
 
 
 
-converter.register_structure_hook(PuzzleSpec, make_dict_structure_fn(PuzzleSpec, converter))
-converter.register_unstructure_hook(PuzzleSpec, make_dict_unstructure_fn(PuzzleSpec, converter))
+converter.register_structure_hook(Puzzle, make_dict_structure_fn(Puzzle, converter))
+converter.register_unstructure_hook(Puzzle, make_dict_unstructure_fn(Puzzle, converter))
 
-PuzzleSpecBible = dict[str, PuzzleSpec]
+PuzzleSource = dict[str, Puzzle]
 
 
-def format_transformations(spec: PuzzleSpec, outputs: list[Feature] | None = None) -> str:
-    """Human-readable imperative steps for ``spec`` (runs ``trace()`` if needed)."""
-    results = outputs if outputs is not None else spec.trace()
+def format_transformations(puzzle: Puzzle, outputs: list[Feature] | None = None) -> str:
+    """Human-readable imperative steps for ``puzzle`` (runs ``trace()`` if needed)."""
+    results = outputs if outputs is not None else puzzle.trace()
     if outputs is not None:
-        spec._assign_entry_aliases()
+        puzzle._assign_entry_aliases()
     lines = ["Steps:"]
     prior: list[Feature] = []
-    for i, (step, out) in enumerate(zip(spec.skeleton, results, strict=True), start=1):
-        resolved = [spec.resolve(wire, prior) for wire in step.inputs]
+    for i, (step, out) in enumerate(zip(puzzle.skeleton, results, strict=True), start=1):
+        resolved = [puzzle.resolve(wire, prior) for wire in step.inputs]
         lines.append(f"{i}. {step.describe(resolved, out, step=i)}")
         prior.append(out)
     return "\n".join(lines)
 
 
-def _wire_family(spec: PuzzleSpec, wire: WireRef, step_index: int) -> str:
+def _wire_family(puzzle: Puzzle, wire: WireRef, step_index: int) -> str:
     """Resolve the feature family carried by ``wire`` as seen from skeleton step ``step_index``."""
     if isinstance(wire, str):
-        if wire not in spec.cache:
+        if wire not in puzzle.cache:
             raise SpecError(f"step {step_index}: unknown cache key {wire!r}")
-        return type(spec.cache[wire]).__feature_family__
+        return type(puzzle.cache[wire]).__feature_family__
 
     if isinstance(wire, int) and not isinstance(wire, bool):
         if wire == 0:
-            return type(spec.input).__feature_family__
+            return type(puzzle.input).__feature_family__
         if wire < 0:
             raise SpecError(f"step {step_index}: invalid wire ref {wire}")
         src = wire - 1
@@ -397,21 +546,21 @@ def _wire_family(spec: PuzzleSpec, wire: WireRef, step_index: int) -> str:
             raise SpecError(
                 f"step {step_index}: wire {wire} refers to step {src} which is not yet available"
             )
-        return type(spec.skeleton[src]).output_feature
+        return type(puzzle.skeleton[src]).output_feature
 
     raise SpecError(f"step {step_index}: wire ref must be str or int, got {wire!r}")
 
 
-def validate_spec(spec: PuzzleSpec) -> None:
+def validate_spec(puzzle: Puzzle) -> None:
     """Check arity, feature-family matches, usage, and final object output."""
-    if not spec.skeleton:
+    if not puzzle.skeleton:
         raise SpecError("skeleton must contain at least one transformation")
 
     used_cache: set[str] = set()
     used_input = False
     used_steps: set[int] = set()
 
-    for step_index, step in enumerate(spec.skeleton):
+    for step_index, step in enumerate(puzzle.skeleton):
         cls = type(step)
         name = cls.__transformation_name__
         try:
@@ -421,7 +570,7 @@ def validate_spec(spec: PuzzleSpec) -> None:
 
         for slot, wire in enumerate(step.inputs):
             expected = cls.expected_input_family(slot)
-            actual = _wire_family(spec, wire, step_index)
+            actual = _wire_family(puzzle, wire, step_index)
             if actual != expected:
                 raise SpecError(
                     f"step {step_index} ({name}) slot {slot}: expected feature family "
@@ -435,20 +584,20 @@ def validate_spec(spec: PuzzleSpec) -> None:
             else:
                 used_steps.add(wire - 1)
 
-    unused_cache = set(spec.cache) - used_cache
+    unused_cache = set(puzzle.cache) - used_cache
     if unused_cache:
         raise SpecError(f"unused cache keys: {sorted(unused_cache)}")
 
     if not used_input:
         raise SpecError("puzzle input is never used")
 
-    intermediate = set(range(len(spec.skeleton) - 1))
+    intermediate = set(range(len(puzzle.skeleton) - 1))
     unused_steps = intermediate - used_steps
     if unused_steps:
-        names = [type(spec.skeleton[i]).__transformation_name__ for i in sorted(unused_steps)]
+        names = [type(puzzle.skeleton[i]).__transformation_name__ for i in sorted(unused_steps)]
         raise SpecError(f"unused transformation outputs at steps {sorted(unused_steps)} ({names})")
 
-    final = type(spec.skeleton[-1])
+    final = type(puzzle.skeleton[-1])
     if final.output_feature != "object":
         raise SpecError(
             f"last transformation {final.__transformation_name__!r} must output feature family "
@@ -456,19 +605,19 @@ def validate_spec(spec: PuzzleSpec) -> None:
         )
 
 
-def structure_bible(obj: Any, *, validate: bool = True) -> PuzzleSpecBible:
+def structure_source(obj: Any, *, validate: bool = True) -> PuzzleSource:
     if not isinstance(obj, dict):
-        raise ValueError(f"bible must be an object, got {type(obj).__name__}")
-    bible = {puzzle_id: converter.structure(spec, PuzzleSpec) for puzzle_id, spec in obj.items()}
+        raise ValueError(f"source must be an object, got {type(obj).__name__}")
+    source = {puzzle_id: converter.structure(raw, Puzzle) for puzzle_id, raw in obj.items()}
     if validate:
-        for puzzle_id, spec in bible.items():
+        for puzzle_id, puzzle in source.items():
             try:
-                spec.validate()
+                puzzle.validate()
             except SpecError as exc:
                 raise SpecError(f"puzzle {puzzle_id}: {exc}") from exc
-    return bible
+    return source
 
 
-def load_bible(path: Union[str, Path], *, validate: bool = True) -> PuzzleSpecBible:
+def load_source(path: Union[str, Path], *, validate: bool = True) -> PuzzleSource:
     with Path(path).open() as f:
-        return structure_bible(json.load(f), validate=validate)
+        return structure_source(json.load(f), validate=validate)

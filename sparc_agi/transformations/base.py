@@ -1,6 +1,6 @@
 """Transformation registry.
 
-Skeleton steps in the bible are single-key tagged objects whose payload is the
+Skeleton steps in the source are single-key tagged objects whose payload is the
 input wire list (or, later, a dict of fields)::
 
     { "Rotate": ["a", 0] }
@@ -19,7 +19,7 @@ Register a new transformation with ``@register_transformation("Name")``.
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Callable, ClassVar, TypeVar
+from typing import Any, Callable, ClassVar, TypeVar
 
 from sparc_agi.features.base import Feature
 
@@ -77,13 +77,17 @@ class Transformation:
         """
         raise NotImplementedError(f"{type(self).__name__}.apply() is not implemented")
 
+    def instantiate(self, inputs: Sequence[Any], *, step: int) -> Any:
+        """Apply this transformation to already-instantiated input values."""
+        raise NotImplementedError(f"{type(self).__name__}.instantiate() is not implemented")
+
     def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
         """Imperative sentence for this step (no leading number; ends with ``.``)."""
         raise NotImplementedError(f"{type(self).__name__}.describe() is not implemented")
 
 
 def register_transformation(name: str) -> Callable[[type[T]], type[T]]:
-    """Register a Transformation subclass under a bible tag name."""
+    """Register a Transformation subclass under a source tag name."""
 
     def decorator(cls: type[T]) -> type[T]:
         if not issubclass(cls, Transformation):

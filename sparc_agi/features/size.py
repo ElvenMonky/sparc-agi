@@ -1,6 +1,6 @@
 """Composite of width/height features.
 
-In the bible, size is nested as bare scalar payloads under field names that
+In the source, size is nested as bare scalar payloads under field names that
 match the feature tags::
 
     "size": { "width": 3, "height": 3 }
@@ -9,6 +9,9 @@ Top-level cache/input entries can still use the tagged feature form
 ``{ "width": 3 }`` / ``{ "height": 3 }``.
 """
 
+from __future__ import annotations
+
+import random
 from dataclasses import dataclass
 
 from sparc_agi.features.height import Height
@@ -25,3 +28,6 @@ class Size:
         if w.lo == w.hi and h.lo == h.hi and w.step == h.step == 1:
             return f"{w.lo}x{h.lo}"
         return f"{self.width.describe()} × {self.height.describe()}"
+
+    def instantiate(self, rng: random.Random) -> tuple[int, int]:
+        return (self.width.instantiate(rng), self.height.instantiate(rng))

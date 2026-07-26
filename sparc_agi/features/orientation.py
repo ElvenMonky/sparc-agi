@@ -36,16 +36,26 @@ _GEOMETRIC: dict[int, str] = {
 }
 
 
-def _transform_xy(x: int, y: int, d: int) -> tuple[int, int]:
-    x, y = _TRANSFORMS[d // 2](x, y)
-    return x, y
+def transform_xy(x: int, y: int, d: int) -> tuple[int, int]:
+    """Apply the axis-aligned dihedral half of orientation ``d`` (45° dropped)."""
+    even = d - (d % 2)
+    return _TRANSFORMS[even // 2](x, y)
+
+
+def scan_cells(width: int, height: int, d: int) -> list[tuple[int, int]]:
+    """Cell coordinates in fill order for a ``width``×``height`` grid under ``d``.
+
+    Identity fill is row-major; ``d``'s even dihedral half reorders/positions
+    cells. The +45° bit is dropped by design for grids.
+    """
+    pts = [transform_xy(x, y, d) for y in range(height) for x in range(width)]
+    min_x = min(p[0] for p in pts)
+    min_y = min(p[1] for p in pts)
+    return [(x - min_x, y - min_y) for x, y in pts]
 
 
 def _grid_scan_phrase(d: int) -> str | None:
     """How identity row-major fill appears after orientation ``d``.
-
-    Grid arrangements only use the 8 axis-aligned dihedral ops (``d // 2``);
-    the +45° bit (``d % 2``) is dropped by design and never described.
 
     Returns e.g. ``\"column by column from top to bottom and right to left\"``,
     or ``None`` for the default identity scan (omit from descriptions).
@@ -54,16 +64,8 @@ def _grid_scan_phrase(d: int) -> str | None:
     if even == 0:
         return None
 
-    # Fill a small grid in local row-major order, then apply the even transform.
     n = 3
-    pts: list[tuple[int, int]] = []
-    for y in range(n):
-        for x in range(n):
-            pts.append(_transform_xy(x, y, even))
-    min_x = min(p[0] for p in pts)
-    min_y = min(p[1] for p in pts)
-    pts = [(x - min_x, y - min_y) for x, y in pts]
-
+    pts = scan_cells(n, n, even)
     dx = pts[1][0] - pts[0][0]
     dy = pts[1][1] - pts[0][1]
     if dx != 0 and dy == 0:
