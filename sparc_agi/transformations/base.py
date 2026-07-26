@@ -17,8 +17,11 @@ the last declared family may repeat for extra trailing wires.
 Register a new transformation with ``@register_transformation("Name")``.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Callable, ClassVar, TypeVar
+
+from sparc_agi.features.base import Feature
 
 WireRef = str | int
 
@@ -65,6 +68,18 @@ class Transformation:
             raise ValueError(
                 f"{cls.__transformation_name__} expects {n} input(s), got {n_inputs}"
             )
+
+    def apply(self, inputs: Sequence[Feature], *, step: int, **kwargs: object) -> Feature:
+        """Run this transformation on resolved inputs; return the output feature.
+
+        ``step`` is the 1-based skeleton index. Implementations should set
+        ``output.alias`` so later steps can refer to this result by name.
+        """
+        raise NotImplementedError(f"{type(self).__name__}.apply() is not implemented")
+
+    def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
+        """Imperative sentence for this step (no leading number; ends with ``.``)."""
+        raise NotImplementedError(f"{type(self).__name__}.describe() is not implemented")
 
 
 def register_transformation(name: str) -> Callable[[type[T]], type[T]]:

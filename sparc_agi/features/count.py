@@ -4,7 +4,7 @@ from sparc_agi.features.base import Feature, register_feature
 from sparc_agi.features.range import Range
 
 
-@register_feature("height", scalar=True)
+@register_feature("count", scalar=True)
 @dataclass
-class Height(Feature):
+class Count(Feature):
     value: Range

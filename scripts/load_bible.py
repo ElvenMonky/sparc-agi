@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Load and pretty-print data/puzzle_spec_bible.json via PuzzleSpec parsing."""
+"""Load, validate, and describe data/puzzle_spec_bible.json."""
 
 import pprint
 from pathlib import Path
@@ -16,6 +16,8 @@ def main() -> None:
         print(f"=== {puzzle_id} ===")
         pprint.pp(spec)
         print("validated ok")
+        print(spec.describe_input())
+        print(spec.describe_transformations())
         print("round-trip:")
         pprint.pp(converter.unstructure(spec))
 

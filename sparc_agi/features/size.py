@@ -19,3 +19,9 @@ from sparc_agi.features.width import Width
 class Size:
     width: Width
     height: Height
+
+    def describe(self) -> str:
+        w, h = self.width.value, self.height.value
+        if w.lo == w.hi and h.lo == h.hi and w.step == h.step == 1:
+            return f"{w.lo}x{h.lo}"
+        return f"{self.width.describe()} × {self.height.describe()}"
