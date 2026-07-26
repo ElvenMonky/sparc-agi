@@ -1,7 +1,5 @@
 """Sequence feature: prefix / cycle / suffix pool-index lists."""
 
-from __future__ import annotations
-
 import random
 from dataclasses import dataclass, field
 
@@ -14,7 +12,7 @@ class Sequence(Feature):
     """Pool-index pattern for arrangement slots.
 
     Instantiation returns ``(prefix, cycle, suffix)``. Index ``-1`` means the
-    corresponding footprint slot is left empty (omitted from the result).
+    corresponding arrangement slot is left empty (omitted from the result).
     """
 
     cycle: list[int] = field(default_factory=list)

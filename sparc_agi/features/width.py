@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 
-from sparc_agi.features.base import Feature, register_feature
-from sparc_agi.features.range import Range
+from sparc_agi.features.base import Scalar, register_feature
 
 
-@register_feature("width", scalar=True)
+@register_feature("width")
 @dataclass
-class Width(Feature):
-    value: Range
+class Width(Scalar):
+    pass

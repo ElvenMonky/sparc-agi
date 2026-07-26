@@ -7,6 +7,7 @@ from pathlib import Path
 from sparc_agi.features.base import (
     FEATURE_REGISTRY,
     Feature,
+    Scalar,
     feature_family,
     register_feature,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "FEATURE_REGISTRY",
     "Feature",
     "Range",
+    "Scalar",
     "Sequence",
     "Size",
     "feature_family",

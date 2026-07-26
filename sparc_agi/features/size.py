@@ -9,8 +9,6 @@ Top-level cache/input entries can still use the tagged feature form
 ``{ "width": 3 }`` / ``{ "height": 3 }``.
 """
 
-from __future__ import annotations
-
 import random
 from dataclasses import dataclass
 

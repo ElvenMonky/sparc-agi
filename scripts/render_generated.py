@@ -6,8 +6,6 @@ source path for cache labels (default: source recorded in the JSON, else
 data/puzzle_bible.json).
 """
 
-from __future__ import annotations
-
 import argparse
 import json
 import sys
@@ -16,7 +14,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 
 from sparc_agi.plotting import render_generated_puzzle
-from sparc_agi.puzzle import load_source
+from sparc_agi.parser import load_source
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMP = ROOT / "temp"

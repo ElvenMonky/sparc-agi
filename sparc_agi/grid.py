@@ -1,7 +1,5 @@
 """Grid helpers for object instantiation and transformation."""
 
-from __future__ import annotations
-
 from sparc_agi.features.orientation import transform_xy
 
 Grid = list[list[int]]

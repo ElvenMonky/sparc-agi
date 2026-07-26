@@ -4,14 +4,12 @@
 Accepts an optional source path; defaults to data/puzzle_bible.json.
 """
 
-from __future__ import annotations
-
 import argparse
 import pprint
 import random
 from pathlib import Path
 
-from sparc_agi.puzzle import converter, load_source
+from sparc_agi.parser import converter, load_source
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCE = ROOT / "data" / "puzzle_bible.json"

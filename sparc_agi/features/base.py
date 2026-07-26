@@ -8,14 +8,16 @@ The tag is ``<family>`` or ``<family>.<kind>``. The family (part before the
 dot) is what transformations match on; kinds are interchangeable in a slot
 that expects that family (e.g. ``object.sprite`` satisfies an ``object`` slot).
 
-Register a new feature with ``@register_feature("feature.name")``. If
-``scalar=True``, a non-dict payload is wrapped into the dataclass's single
-field (e.g. ``{ "orientation": 12 }`` → ``Orientation(value=12)``).
+Register a new feature with ``@register_feature("feature.name")``. Scalar
+features subclass :class:`Scalar` (single ``value: Range`` field); composites
+subclass :class:`Feature` directly.
 """
 
 import random
 from dataclasses import MISSING, dataclass, field, fields, replace
 from typing import Any, Callable, ClassVar, Self, TypeVar
+
+from sparc_agi.features.range import Range
 
 F = TypeVar("F", bound="Feature")
 
@@ -33,7 +35,6 @@ class Feature:
 
     __feature_name__: ClassVar[str]
     __feature_family__: ClassVar[str]
-    __feature_scalar__: ClassVar[bool] = False
 
     # Provenance link set when a transformation derives a copy from this feature.
     # Typed as Any so cattrs/dataclass tooling does not choke on a self-type.
@@ -68,31 +69,27 @@ class Feature:
 
     def describe(self) -> str:
         """Human-readable phrase for this feature; composites include child describes."""
-        if type(self).__feature_scalar__:
-            value_fields = [f for f in fields(type(self)) if f.name not in ("source", "alias")]
-            val = getattr(self, value_fields[0].name)
-            val_text = val.describe() if hasattr(val, "describe") else str(val)
-            return f"{self.__feature_name__} {val_text}"
         return self.__feature_name__
 
     def instantiate(self, rng: random.Random) -> Any:
-        """Sample a concrete value for this feature.
-
-        Scalars pick an ``int`` from their ``Range``. Composites instantiate
-        children and build their own concrete representation.
-        """
-        if type(self).__feature_scalar__:
-            from sparc_agi.features.range import Range
-
-            value_fields = [f for f in fields(type(self)) if f.name not in ("source", "alias")]
-            val = getattr(self, value_fields[0].name)
-            if isinstance(val, Range):
-                return val.sample(rng)
-            raise TypeError(f"{type(self).__name__} scalar value is not a Range")
+        """Sample a concrete value for this feature."""
         raise NotImplementedError(f"{type(self).__name__}.instantiate() is not implemented")
 
 
-def register_feature(name: str, *, scalar: bool = False) -> Callable[[type[F]], type[F]]:
+@dataclass
+class Scalar(Feature):
+    """Range-valued scalar feature (width, color, orientation, …)."""
+
+    value: Range
+
+    def describe(self) -> str:
+        return f"{self.__feature_name__} {self.value.describe()}"
+
+    def instantiate(self, rng: random.Random) -> int:
+        return self.value.sample(rng)
+
+
+def register_feature(name: str) -> Callable[[type[F]], type[F]]:
     """Register a Feature subclass under a source tag name."""
 
     def decorator(cls: type[F]) -> type[F]:
@@ -100,12 +97,12 @@ def register_feature(name: str, *, scalar: bool = False) -> Callable[[type[F]], 
             raise TypeError(f"{cls.__name__} must subclass Feature")
         if name in FEATURE_REGISTRY:
             raise ValueError(f"feature {name!r} already registered as {FEATURE_REGISTRY[name].__name__}")
-        value_fields = [f for f in fields(cls) if f.name not in ("source", "alias")]
-        if scalar and len(value_fields) != 1:
-            raise TypeError(f"scalar feature {cls.__name__} must have exactly one value field")
+        if issubclass(cls, Scalar):
+            value_fields = [f for f in fields(cls) if f.name not in ("source", "alias")]
+            if len(value_fields) != 1 or value_fields[0].name != "value":
+                raise TypeError(f"scalar feature {cls.__name__} must declare a single 'value' field")
         cls.__feature_name__ = name
         cls.__feature_family__ = feature_family(name)
-        cls.__feature_scalar__ = scalar
         FEATURE_REGISTRY[name] = cls
         return cls
 

@@ -1,5 +1,6 @@
 """sparc-agi: synthetic puzzle generation for ARC-AGI."""
 
+from sparc_agi.parser import converter, load_source, structure_source
 from sparc_agi.puzzle import (
     GeneratedPuzzle,
     Puzzle,
@@ -8,7 +9,6 @@ from sparc_agi.puzzle import (
     SampleCounts,
     SpecError,
     format_transformations,
-    load_source,
     validate_spec,
 )
 
@@ -20,8 +20,10 @@ __all__ = [
     "PuzzleSource",
     "SampleCounts",
     "SpecError",
+    "converter",
     "format_transformations",
     "load_source",
+    "structure_source",
     "validate_spec",
     "__version__",
 ]

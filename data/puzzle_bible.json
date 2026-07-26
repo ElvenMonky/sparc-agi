@@ -3,11 +3,9 @@
     "cache": {
       "a": { "orientation": 12 },
       "b": {
-        "arrangement": {
-          "footprint.grid": {
-            "size": { "width": 3, "height": 3 },
-            "orientation": 2
-          },
+        "arrangement.grid": {
+          "size": { "width": 3, "height": 3 },
+          "orientation": 2,
           "sequence": { "cycle": [0, 1, 0] }
         }
       }

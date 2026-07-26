@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass, field
 
 from sparc_agi.features.base import Feature, register_feature
@@ -19,3 +20,7 @@ class Spacing(Feature):
         if not parts:
             return ""
         return f"spacing ({', '.join(parts)})"
+
+    def instantiate(self, rng: random.Random) -> tuple[int, int]:
+        return (self.margin.sample(rng), self.gap.sample(rng))
+

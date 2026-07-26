@@ -4,8 +4,6 @@ JSON form matches the old RangeSpec: a bare ``int`` (exact value) or a list
 ``[lo, hi]`` / ``[lo, hi, step]`` (inclusive bounds).
 """
 
-from __future__ import annotations
-
 import random
 from dataclasses import dataclass
 from typing import Any

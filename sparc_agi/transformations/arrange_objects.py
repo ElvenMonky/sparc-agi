@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from sparc_agi.features.base import Feature
-from sparc_agi.features.group import Group, join_copy_refs
+from sparc_agi.features.objects.group import Group, join_copy_refs
 from sparc_agi.grid import Grid, Placement, compose_placements
 from sparc_agi.transformations.base import Transformation, register_transformation
 
