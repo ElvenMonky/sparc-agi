@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sparc-agi"
+version = "0.1.0"
+description = "Synthetic puzzle generation for ARC-AGI"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "Serhii Hrynko", email = "sergey.greenko@gmail.com" },
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/ElvenMonky/sparc-agi"
+Repository = "https://github.com/ElvenMonky/sparc-agi"
+
+[tool.hatch.build.targets.wheel]
+packages = ["sparc_agi"]

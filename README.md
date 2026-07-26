@@ -1,3 +1,9 @@
-# sparc-agi
+# Spark of AGI
 
-Synthetic puzzle generation for ARC-AGI.
+Synthetic Puzzle Generation for ARC-AGI.
+
+## Install
+
+```bash
+pip install -e .
+```

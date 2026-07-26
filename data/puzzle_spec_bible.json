@@ -1,0 +1,14 @@
+{
+  "00576224": {
+    "cache": {
+      "a": { "orientation": 12 },
+      "b": { "arrangement.grid": { "size": { "width": 3, "height": 3 }, "sequence": { "cycle": [0, 1, 0] }, "orientation": 2 } }
+    },
+    "input": { "object.sprite": { "size": { "width": 2, "height": 2 } } },
+    "skeleton": [{
+      "type": "Rotate", "input": ["a", 0]
+    },{
+      "type": "ArrangeObjects", "input": ["b", 0, 1]
+    }]
+  }
+}
