@@ -40,8 +40,14 @@ class ArrangeObjects(Transformation):
         out.alias = f"group from step {step}"
         return out
 
-    def instantiate(self, inputs: Sequence[Any], *, step: int) -> Grid:
-        del step
+    def instantiate(
+        self,
+        inputs: Sequence[Any],
+        *,
+        step: int,
+        feature_inputs: Sequence[Feature] | None = None,
+    ) -> Grid:
+        del step, feature_inputs
         arrangement, *objects = inputs
         if not isinstance(arrangement, list):
             raise TypeError(

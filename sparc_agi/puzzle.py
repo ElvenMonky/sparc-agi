@@ -67,7 +67,9 @@ class Puzzle:
         prior: list[Feature] = []
         for i, (step, out) in enumerate(zip(self.skeleton, results, strict=True), start=1):
             resolved = [self.resolve(wire, prior) for wire in step.inputs]
-            step_lines.append(step.describe(resolved, out, step=i))
+            text = step.describe(resolved, out, step=i)
+            if text:
+                step_lines.append(text)
             prior.append(out)
         return PuzzleDescription(input=[self.describe_input()], steps=step_lines)
 
@@ -88,8 +90,18 @@ class Puzzle:
                     self.resolve_instance(wire, cache, input_value, outputs)
                     for wire in step.inputs
                 ]
+                feat_resolved = [
+                    self.resolve(wire, feature_outputs[:step_index])
+                    for wire in step.inputs
+                ]
                 try:
-                    outputs.append(step.instantiate(resolved, step=step_index + 1))
+                    outputs.append(
+                        step.instantiate(
+                            resolved,
+                            step=step_index + 1,
+                            feature_inputs=feat_resolved,
+                        )
+                    )
                 except Exception as exc:
                     name = type(step).__transformation_name__
                     raise SpecError(
@@ -196,9 +208,13 @@ def format_transformations(puzzle: Puzzle, outputs: list[Feature] | None = None)
         puzzle._assign_entry_aliases()
     lines = ["Steps:"]
     prior: list[Feature] = []
+    n = 0
     for i, (step, out) in enumerate(zip(puzzle.skeleton, results, strict=True), start=1):
         resolved = [puzzle.resolve(wire, prior) for wire in step.inputs]
-        lines.append(f"{i}. {step.describe(resolved, out, step=i)}")
+        text = step.describe(resolved, out, step=i)
+        if text:
+            n += 1
+            lines.append(f"{n}. {text}")
         prior.append(out)
     return "\n".join(lines)
 

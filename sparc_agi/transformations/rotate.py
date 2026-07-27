@@ -11,7 +11,12 @@ from sparc_agi.transformations.base import Transformation, register_transformati
 @register_transformation("Rotate")
 @dataclass
 class Rotate(Transformation):
-    """Rotate an object; inputs ``[orientation, object]`` → ``object``."""
+    """Rotate an object; inputs ``[orientation, object]`` → ``object``.
+
+    Requires the ``orientation`` trait when present. Objects without it
+    (e.g. ``Point``) pass through unchanged: no geometric action and no
+    step description.
+    """
 
     input_features = ("orientation", "object")
     output_feature = "object"
@@ -22,20 +27,32 @@ class Rotate(Transformation):
             raise TypeError(f"Rotate expects Orientation, got {type(orientation).__name__}")
         if type(obj).__feature_family__ != "object":
             raise TypeError(f"Rotate expects an object feature, got {type(obj).__feature_name__}")
-        if not hasattr(obj, "orientation"):
-            raise TypeError(f"{type(obj).__name__} has no orientation to rotate")
+        if not obj.has_trait("orientation"):
+            out = obj.derived()
+            out.alias = obj.refer()
+            return out
         previous: Orientation = obj.orientation
         out = obj.derived(orientation=orientation.applied_to(previous))
         out.alias = orientation.result_alias(out.kind_noun(), step)
         return out
 
-    def instantiate(self, inputs: Sequence[Any], *, step: int) -> Grid:
+    def instantiate(
+        self,
+        inputs: Sequence[Any],
+        *,
+        step: int,
+        feature_inputs: Sequence[Feature] | None = None,
+    ) -> Grid:
         del step
         orientation, obj = inputs
         if not isinstance(orientation, int):
             raise TypeError(f"Rotate.instantiate expects int orientation, got {type(orientation).__name__}")
         if not isinstance(obj, list):
             raise TypeError(f"Rotate.instantiate expects object grid, got {type(obj).__name__}")
+        if feature_inputs is not None:
+            _, obj_feat = feature_inputs
+            if not obj_feat.has_trait("orientation"):
+                return obj
         return apply_orientation(obj, orientation)
 
     def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
@@ -43,4 +60,6 @@ class Rotate(Transformation):
         orientation, obj = inputs
         if not isinstance(orientation, Orientation):
             raise TypeError(f"Rotate expects Orientation, got {type(orientation).__name__}")
+        if not obj.has_trait("orientation"):
+            return ""
         return orientation.action_sentence(obj.refer())

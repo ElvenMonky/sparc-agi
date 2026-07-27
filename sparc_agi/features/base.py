@@ -8,6 +8,16 @@ The tag is ``<family>`` or ``<family>.<kind>``. The family (part before the
 dot) is what transformations match on; kinds are interchangeable in a slot
 that expects that family (e.g. ``object.sprite`` satisfies an ``object`` slot).
 
+**Traits.** Every dataclass field on a feature (except provenance ``source`` /
+``alias``) is an editable trait. Transformations use :meth:`has_trait` to
+require or optionally special-case a trait (e.g. Rotate + ``orientation``).
+Prefer methods for non-editable structure (e.g. Sprite ``as_group()``). To
+keep a dataclass field that is *not* a trait, list it on ``__non_traits__``::
+
+    __non_traits__ = frozenset({"internal_cache"})
+
+Provenance fields are always excluded; ``__non_traits__`` only names extras.
+
 Register a new feature with ``@register_feature("feature.name")``. Scalar
 features subclass :class:`Scalar` (single ``value: Range`` field); composites
 subclass :class:`Feature` directly.
@@ -23,6 +33,9 @@ F = TypeVar("F", bound="Feature")
 
 FEATURE_REGISTRY: dict[str, type[Feature]] = {}
 
+# Provenance fields present on every Feature; never traits / source payload.
+_PROVENANCE_FIELDS: frozenset[str] = frozenset({"source", "alias"})
+
 
 def feature_family(name: str) -> str:
     """Return the feature family for a registry tag (``arrangement.grid`` → ``arrangement``)."""
@@ -35,12 +48,24 @@ class Feature:
 
     __feature_name__: ClassVar[str]
     __feature_family__: ClassVar[str]
+    # Extra field names that are not traits (provenance is always excluded).
+    __non_traits__: ClassVar[frozenset[str]] = frozenset()
 
     # Provenance link set when a transformation derives a copy from this feature.
     # Typed as Any so cattrs/dataclass tooling does not choke on a self-type.
     source: Any = field(default=None, kw_only=True, compare=False, repr=False)
     # Referential name for descriptions ("input sprite", "rotated sprite from step 1").
     alias: str | None = field(default=None, kw_only=True, compare=False, repr=False)
+
+    @classmethod
+    def trait_names(cls) -> frozenset[str]:
+        """Editable trait field names for this feature kind."""
+        excluded = _PROVENANCE_FIELDS | cls.__non_traits__
+        return frozenset(f.name for f in fields(cls) if f.name not in excluded)
+
+    def has_trait(self, name: str) -> bool:
+        """True if this feature kind exposes editable trait ``name``."""
+        return name in type(self).trait_names()
 
     def kind_noun(self) -> str:
         """Short kind word from the feature tag (``object.sprite`` → ``sprite``)."""
@@ -98,7 +123,7 @@ def register_feature(name: str) -> Callable[[type[F]], type[F]]:
         if name in FEATURE_REGISTRY:
             raise ValueError(f"feature {name!r} already registered as {FEATURE_REGISTRY[name].__name__}")
         if issubclass(cls, Scalar):
-            value_fields = [f for f in fields(cls) if f.name not in ("source", "alias")]
+            value_fields = [f for f in fields(cls) if f.name not in _PROVENANCE_FIELDS]
             if len(value_fields) != 1 or value_fields[0].name != "value":
                 raise TypeError(f"scalar feature {cls.__name__} must declare a single 'value' field")
         cls.__feature_name__ = name

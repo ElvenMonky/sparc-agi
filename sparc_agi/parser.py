@@ -147,7 +147,7 @@ def _normalize_composite_payload(payload: dict[str, Any], cls: type[Feature]) ->
     nested value so polymorphic ``Feature`` slots keep their kind.
     """
     hints = get_type_hints(cls)
-    field_names = {f.name for f in fields(cls) if f.name not in ("source", "alias")}
+    field_names = set(cls.trait_names())
     out = dict(payload)
     for key in list(out):
         if key in field_names or key not in FEATURE_REGISTRY:
@@ -201,7 +201,7 @@ def _unstructure_composite_payload(obj: Feature) -> dict[str, Any]:
     hints = get_type_hints(cls)
     payload: dict[str, Any] = {}
     for f in fields(cls):
-        if f.name in ("source", "alias", "pool_origins"):
+        if f.name not in cls.trait_names():
             continue
         val = getattr(obj, f.name)
         if val is None:

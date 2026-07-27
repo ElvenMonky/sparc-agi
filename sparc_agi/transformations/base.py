@@ -14,6 +14,11 @@ Each transformation declares feature *families* for its slots via
 (``object.sprite``, …) are interchangeable. If ``input_variadic`` is true,
 the last declared family may repeat for extra trailing wires.
 
+Beyond family matching, a transform may require a *trait* on the resolved
+feature (``feature.has_trait("orientation")``), accept any kind in the
+family, or — rarely — special-case missing traits (pass-through). Feature
+dataclass fields are traits by convention; see :class:`~sparc_agi.features.base.Feature`.
+
 Register a new transformation with ``@register_transformation("Name")``.
 """
 
@@ -77,8 +82,19 @@ class Transformation:
         """
         raise NotImplementedError(f"{type(self).__name__}.apply() is not implemented")
 
-    def instantiate(self, inputs: Sequence[Any], *, step: int) -> Any:
-        """Apply this transformation to already-instantiated input values."""
+    def instantiate(
+        self,
+        inputs: Sequence[Any],
+        *,
+        step: int,
+        feature_inputs: Sequence[Feature] | None = None,
+    ) -> Any:
+        """Apply this transformation to already-instantiated input values.
+
+        ``feature_inputs`` are the same wires resolved on the feature tree
+        (when available), for transforms that need trait checks at instantiate.
+        """
+        del feature_inputs
         raise NotImplementedError(f"{type(self).__name__}.instantiate() is not implemented")
 
     def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:

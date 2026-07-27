@@ -19,7 +19,11 @@ from sparc_agi.grid import apply_orientation
 @register_feature("object.sprite")
 @dataclass
 class Sprite(Object):
-    """Dense rectangle of points. Exposes ``color``; uses ``arrangement.grid`` under the hood."""
+    """Dense rectangle of points.
+
+    Traits: ``size``, ``color``, ``orientation``. Grid layout is not a trait —
+    expand via :meth:`as_group` when a pool/arrangement is needed.
+    """
 
     size: Size
     color: Color = field(default_factory=lambda: Color(value=Range(0, 10)))
