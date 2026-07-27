@@ -12,7 +12,7 @@ from sparc_agi.features.range import Range
 @register_feature("object.point")
 @dataclass
 class Point(Object):
-    color: Color = field(default_factory=lambda: Color(value=Range(0, 10)))
+    color: Color = field(default_factory=lambda: Color(value=Range(0, 9)))
 
     def describe(self) -> str:
         if self.source is not None and getattr(self.source, "alias", None):

@@ -26,7 +26,7 @@ class Sprite(Object):
     """
 
     size: Size
-    color: Color = field(default_factory=lambda: Color(value=Range(0, 10)))
+    color: Color = field(default_factory=lambda: Color(value=Range(0, 9)))
     orientation: Orientation = field(default_factory=lambda: Orientation(value=Range(0)))
 
     def as_group(self) -> Group:

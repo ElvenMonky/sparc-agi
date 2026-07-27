@@ -38,6 +38,18 @@ def to_arc_grid(grid: Grid) -> Grid:
     return [[0 if cell < 0 else cell for cell in row] for row in grid]
 
 
+def placements_to_mask(placements: list[Placement]) -> Grid:
+    """Binary occupancy grid covering placement coordinates."""
+    if not placements:
+        return []
+    width = max(x for (x, _), _ in placements) + 1
+    height = max(y for (_, y), _ in placements) + 1
+    out: Grid = [[0] * width for _ in range(height)]
+    for (x, y), _ in placements:
+        out[y][x] = 1
+    return out
+
+
 def compose_placements(
     placements: list[Placement],
     pool: list[Grid],

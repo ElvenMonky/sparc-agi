@@ -5,7 +5,8 @@ Source shape (per puzzle id)::
     {
       "cache": { "<key>": { "<feature.name>": <payload> }, ... },
       "input": { "<feature.name>": <payload> },
-      "samples": { "train": <int>, "test": <int> },
+      "samples": { "train": <range>, "test": <range> },
+      "palette": { "<logical>": <display>, ... },  // optional fixed colors
       "skeleton": [
         { "<Transform>": [<wire>, ...] },
         // or equivalently:
@@ -20,7 +21,7 @@ hooks resolve tags through the registries and do not hard-code type names.
 import json
 from dataclasses import MISSING, fields, is_dataclass
 from pathlib import Path
-from typing import Any, Union, get_type_hints
+from typing import Any, Union, get_args, get_origin, get_type_hints
 
 import cattrs
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
@@ -308,8 +309,38 @@ def _structure_wire_ref(value: Any, _type: type) -> WireRef:
 
 converter.register_structure_hook(WireRef, _structure_wire_ref)
 
+
+def _is_int_int_dict(t: Any) -> bool:
+    return get_origin(t) is dict and get_args(t) == (int, int)
+
+
+def _structure_int_int_dict(obj: Any, _type: type) -> dict[int, int]:
+    """JSON object keys are strings; coerce ``{\"0\": 0}`` → ``{0: 0}``."""
+    if not isinstance(obj, dict):
+        raise ValueError(f"expected object, got {obj!r}")
+    out: dict[int, int] = {}
+    for key, val in obj.items():
+        try:
+            ikey = int(key)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"dict key must be an int, got {key!r}") from exc
+        if isinstance(val, bool) or not isinstance(val, int):
+            raise ValueError(f"dict value must be an int, got {val!r}")
+        out[ikey] = val
+    return out
+
+
+converter.register_structure_hook_func(_is_int_int_dict, _structure_int_int_dict)
+
 converter.register_structure_hook(Puzzle, make_dict_structure_fn(Puzzle, converter))
-converter.register_unstructure_hook(Puzzle, make_dict_unstructure_fn(Puzzle, converter))
+converter.register_unstructure_hook(
+    Puzzle,
+    make_dict_unstructure_fn(
+        Puzzle,
+        converter,
+        palette=override(omit_if_default=True),
+    ),
+)
 
 
 def structure_source(obj: Any, *, validate: bool = True) -> PuzzleSource:

@@ -47,7 +47,7 @@ class ArrangeObjects(Transformation):
         step: int,
         feature_inputs: Sequence[Feature] | None = None,
     ) -> Grid:
-        del step, feature_inputs
+        del step
         arrangement, *objects = inputs
         if not isinstance(arrangement, list):
             raise TypeError(
@@ -61,7 +61,15 @@ class ArrangeObjects(Transformation):
                     f"ArrangeObjects.instantiate expects object grids, got {type(obj).__name__}"
                 )
         placements: list[Placement] = arrangement
-        return compose_placements(placements, list(objects))
+        width = height = None
+        if feature_inputs is not None:
+            arr_feat = feature_inputs[0]
+            size = getattr(arr_feat, "size", None)
+            if size is not None:
+                wv, hv = size.width.value, size.height.value
+                if wv.lo == wv.hi and hv.lo == hv.hi:
+                    width, height = wv.lo, hv.lo
+        return compose_placements(placements, list(objects), width=width, height=height)
 
     def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
         del output, step

@@ -57,13 +57,53 @@ def _is_placement_list(value: Any) -> bool:
     )
 
 
-def placements_to_index_grid(placements: list[Any]) -> list[list[int]]:
-    width = max(p[0][0] for p in placements) + 1
-    height = max(p[0][1] for p in placements) + 1
+def placements_to_index_grid(
+    placements: list[Any],
+    *,
+    width: int | None = None,
+    height: int | None = None,
+) -> list[list[int]]:
+    if not placements and not (width and height):
+        return []
+    if width is None:
+        width = max(p[0][0] for p in placements) + 1
+    if height is None:
+        height = max(p[0][1] for p in placements) + 1
     grid = [[-1] * width for _ in range(height)]
     for (x, y), idx in placements:
-        grid[y][x] = idx
+        if 0 <= x < width and 0 <= y < height:
+            grid[y][x] = idx
     return grid
+
+
+def _is_arrangement_step(value: Any) -> bool:
+    """True for recorded arrangement step payloads ``{placements, width?, height?}``."""
+    return isinstance(value, dict) and "placements" in value
+
+
+def plot_step_visual(ax: Axes, value: Any, title: str = "") -> None:
+    """Draw a sample step: ARC object grid or arrangement index grid."""
+    if _is_arrangement_step(value):
+        placements = value.get("placements") or []
+        plot_index_grid(
+            ax,
+            placements_to_index_grid(
+                placements,
+                width=value.get("width"),
+                height=value.get("height"),
+            ),
+            title=title,
+        )
+        return
+    if _is_placement_list(value):
+        plot_index_grid(ax, placements_to_index_grid(value), title=title)
+        return
+    if _is_int_grid(value):
+        plot_arc_grid(ax, value, title=title)
+        return
+    ax.axis("off")
+    if title:
+        ax.set_title(title, fontsize=10)
 
 
 def plot_arc_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> None:
@@ -98,12 +138,19 @@ def plot_index_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> No
 
     grid = np.asarray(grid_data, dtype=float)
     masked = np.ma.masked_where(grid < 0, grid)
-    ax.imshow(masked, cmap="Blues", interpolation="nearest")
+    present = grid[grid >= 0]
+    vmax = float(present.max()) if present.size else 1.0
+    ax.imshow(masked, cmap="Blues", vmin=-0.5, vmax=max(vmax, 1.0), interpolation="nearest")
     for y in range(grid.shape[0]):
         for x in range(grid.shape[1]):
             val = int(grid[y, x])
             label = "·" if val < 0 else str(val)
-            ax.text(x, y, label, ha="center", va="center", fontsize=9, color="black")
+            # Blues: low values are light, high values are dark — pick contrasting ink.
+            if val < 0:
+                ink = "0.45"
+            else:
+                ink = "white" if (val / max(vmax, 1.0)) > 0.35 else "black"
+            ax.text(x, y, label, ha="center", va="center", fontsize=9, color=ink, fontweight="bold")
     ax.set_xticks(np.arange(-0.5, grid.shape[1], 1), minor=True)
     ax.set_yticks(np.arange(-0.5, grid.shape[0], 1), minor=True)
     ax.grid(which="minor", color="white", linestyle="-", linewidth=1.0)
@@ -191,7 +238,7 @@ def render_generated_puzzle(
     train_steps = list(steps.get("train") or [])
     test_steps = list(steps.get("test") or [])
 
-    samples: list[tuple[str, list[list[int]], list[list[list[int]]], list[list[int]] | None]] = []
+    samples: list[tuple[str, Any, list[Any], Any]] = []
     for i, sample in enumerate(train):
         sample_steps = train_steps[i] if i < len(train_steps) else []
         samples.append((f"train {i + 1}", sample["input"], sample_steps, sample.get("output")))
@@ -278,22 +325,38 @@ def render_generated_puzzle(
         intermediates = sample_steps[:-1] if len(sample_steps) > 1 else []
         final = out if out is not None else (sample_steps[-1] if sample_steps else None)
 
-        row_grids: list[list[list[int]] | None] = [inp]
+        row_values: list[Any] = [inp]
         for i in range(n_intermediates):
-            row_grids.append(intermediates[i] if i < len(intermediates) else None)
-        row_grids.append(final)
+            row_values.append(intermediates[i] if i < len(intermediates) else None)
+        row_values.append(final)
 
-        for row, grid in enumerate(row_grids):
+        for row, value in enumerate(row_values):
             ax = fig.add_subplot(sample_gs[row, col])
             sample_title = sample_name if row == 0 else ""
-            if grid is None:
+            if value is None:
                 ax.axis("off")
                 if row == n_grid_rows - 1 and sample_name.startswith("test"):
                     ax.text(0.5, 0.5, "(no output)", ha="center", va="center", color="gray", transform=ax.transAxes)
             else:
-                plot_arc_grid(ax, grid, title=sample_title)
+                # Intermediate arrangement steps use index-grid style; objects use ARC colors.
+                if 0 < row < n_grid_rows - 1 and (
+                    _is_arrangement_step(value) or _is_placement_list(value)
+                ):
+                    label = f"{sample_title}" if sample_title else ""
+                    plot_step_visual(ax, value, title=label)
+                    if not sample_title:
+                        ax.set_title("arrangement", fontsize=9, color="0.35")
+                else:
+                    plot_step_visual(ax, value, title=sample_title)
             if col == 0:
-                ax.set_ylabel(row_labels[row], fontsize=10, rotation=0, labelpad=28, va="center")
+                ylabel = row_labels[row]
+                if 0 < row < n_grid_rows - 1:
+                    step_val = row_values[row]
+                    if step_val is not None and (
+                        _is_arrangement_step(step_val) or _is_placement_list(step_val)
+                    ):
+                        ylabel = f"{ylabel}\n(arr.)"
+                ax.set_ylabel(ylabel, fontsize=10, rotation=0, labelpad=28, va="center")
 
     # Description
     ax_desc = fig.add_subplot(outer[3])

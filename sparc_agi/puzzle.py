@@ -1,10 +1,11 @@
 """Puzzle dataclasses, validation, description, and generation."""
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from sparc_agi.features import Feature
+from sparc_agi.features.range import Range
 from sparc_agi.transformations import Transformation, WireRef
 
 
@@ -14,10 +15,13 @@ class SpecError(ValueError):
 
 @dataclass
 class SampleCounts:
-    """How many train/test samples to instantiate for a puzzle."""
+    """How many train/test samples to instantiate for a puzzle.
 
-    train: int
-    test: int = 0
+    Values are ranges (a bare int in JSON means an exact count).
+    """
+
+    train: Range
+    test: Range = field(default_factory=lambda: Range(0))
 
 
 @dataclass
@@ -37,6 +41,7 @@ class GeneratedPuzzle:
     solution: list[Any]
     steps: dict[str, list[list[Any]]]
     description: PuzzleDescription
+    palette: tuple[int, ...]  # display = palette[logical] for 0..9
 
 
 @dataclass
@@ -45,6 +50,8 @@ class Puzzle:
     input: Feature
     skeleton: list[Transformation]
     samples: SampleCounts
+    # Fixed logical→display colors; remaining 0..9 are shuffled into free slots.
+    palette: dict[int, int] = field(default_factory=dict)
 
     def validate(self) -> None:
         """Validate wiring, feature-family matches, and that every value is used."""
@@ -75,13 +82,32 @@ class Puzzle:
 
     def generate(self, rng: random.Random | None = None) -> GeneratedPuzzle:
         """Instantiate cache once, then per-sample inputs through the skeleton."""
+        from sparc_agi.features.color import apply_palette, random_palette, use_palette
         from sparc_agi.grid import to_arc_grid
 
         self.validate()
         rng = rng if rng is not None else random.Random()
+        palette = random_palette(rng, self.palette)
         feature_outputs = self.trace()
-        description = self.description_lists(feature_outputs)
+        with use_palette(palette):
+            description = self.description_lists(feature_outputs)
         cache = {key: feat.instantiate(rng) for key, feat in self.cache.items()}
+
+        def emit_grid(value: Any) -> Any:
+            return apply_palette(to_arc_grid(value), palette)
+
+        def emit_step(value: Any, feat_out: Feature) -> Any:
+            """Record object grids (palette-mapped) or arrangements (placements)."""
+            if type(feat_out).__feature_family__ == "arrangement":
+                payload: dict[str, Any] = {"placements": value}
+                size = getattr(feat_out, "size", None)
+                if size is not None:
+                    wv, hv = size.width.value, size.height.value
+                    if wv.lo == wv.hi and hv.lo == hv.hi:
+                        payload["width"] = wv.lo
+                        payload["height"] = hv.lo
+                return payload
+            return emit_grid(value)
 
         def run_sample(input_value: Any) -> list[Any]:
             outputs: list[Any] = []
@@ -111,23 +137,27 @@ class Puzzle:
 
         train_challenge: list[dict[str, Any]] = []
         train_steps: list[list[Any]] = []
-        for _ in range(self.samples.train):
+        for _ in range(self.samples.train.sample(rng)):
             inp = self.input.instantiate(rng)
             outs = run_sample(inp)
             train_challenge.append(
-                {"input": to_arc_grid(inp), "output": to_arc_grid(outs[-1])}
+                {"input": emit_grid(inp), "output": emit_grid(outs[-1])}
             )
-            train_steps.append([to_arc_grid(out) for out in outs])
+            train_steps.append(
+                [emit_step(out, feature_outputs[i]) for i, out in enumerate(outs)]
+            )
 
         test_challenge: list[dict[str, Any]] = []
         test_steps: list[list[Any]] = []
         solution: list[Any] = []
-        for _ in range(self.samples.test):
+        for _ in range(self.samples.test.sample(rng)):
             inp = self.input.instantiate(rng)
             outs = run_sample(inp)
-            test_challenge.append({"input": to_arc_grid(inp)})
-            test_steps.append([to_arc_grid(out) for out in outs])
-            solution.append(to_arc_grid(outs[-1]))
+            test_challenge.append({"input": emit_grid(inp)})
+            test_steps.append(
+                [emit_step(out, feature_outputs[i]) for i, out in enumerate(outs)]
+            )
+            solution.append(emit_grid(outs[-1]))
 
         return GeneratedPuzzle(
             cache=cache,
@@ -135,6 +165,7 @@ class Puzzle:
             solution=solution,
             steps={"train": train_steps, "test": test_steps},
             description=description,
+            palette=palette,
         )
 
     def resolve(self, wire: WireRef, outputs: list[Feature]) -> Feature:
@@ -245,6 +276,14 @@ def validate_spec(puzzle: Puzzle) -> None:
     """Check arity, feature-family matches, usage, and final object output."""
     if not puzzle.skeleton:
         raise SpecError("skeleton must contain at least one transformation")
+
+    for logical, display in puzzle.palette.items():
+        if not (isinstance(logical, int) and not isinstance(logical, bool) and 0 <= logical <= 9):
+            raise SpecError(f"palette key must be int 0..9, got {logical!r}")
+        if not (isinstance(display, int) and not isinstance(display, bool) and 0 <= display <= 9):
+            raise SpecError(f"palette[{logical}] must be int 0..9, got {display!r}")
+    if len(set(puzzle.palette.values())) != len(puzzle.palette):
+        raise SpecError(f"palette display colors must be unique, got {puzzle.palette}")
 
     used_cache: set[str] = set()
     used_input = False
