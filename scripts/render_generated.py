@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
             cache_features=cache_features,
         )
         out_path = TEMP / f"{stem}_{puzzle_id}.png"
-        fig.savefig(out_path, dpi=150, bbox_inches="tight", facecolor="white")
+        fig.savefig(out_path, dpi=100, facecolor="white")
         plt.close(fig)
         written.append(out_path)
 

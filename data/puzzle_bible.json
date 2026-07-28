@@ -1,46 +1,195 @@
 {
   "00576224": {
     "cache": {
-      "a": { "orientation": 12 },
+      "a": {
+        "orientation": 12
+      },
       "b": {
         "arrangement.grid": {
           "orientation": 2,
-          "sequence": { "cycle": [0, 1, 0] },
-          "size": { "width": 3, "height": 3 }
+          "sequence": {
+            "cycle": [
+              0,
+              1,
+              0
+            ]
+          },
+          "size": {
+            "width": 3,
+            "height": 3
+          }
         }
       }
     },
     "input": {
       "object.sprite": {
-        "size": { "width": 2, "height": 2 }
+        "size": {
+          "width": 2,
+          "height": 2
+        }
       }
     },
     "samples": {
       "train": 2,
       "test": 1
     },
-    "skeleton": [{
-      "Rotate": ["a", 0]
-    },{
-      "ArrangeObjects": ["b", 0, 1]
-    }]
+    "skeleton": [
+      {
+        "Rotate": [
+          "a",
+          0
+        ]
+      },
+      {
+        "ArrangeObjects": [
+          "b",
+          0,
+          1
+        ]
+      }
+    ]
   },
   "007bbfb7": {
     "cache": {},
     "input": {
       "object.glyph": {
-        "color": [1, 9]
+        "color": [
+          1,
+          9
+        ]
       }
     },
     "samples": {
-      "train": [3, 5],
-      "test": [1, 3]
+      "train": [
+        3,
+        5
+      ],
+      "test": [
+        1,
+        3
+      ]
     },
-    "palette": { "0": 0 },
-    "skeleton": [{
-      "ExtractArrangement": [0]
-    },{
-      "ArrangeObjects": [1, 0]
-    }]
+    "palette": {
+      "0": 0
+    },
+    "skeleton": [
+      {
+        "ExtractArrangement": [
+          0
+        ]
+      },
+      {
+        "ArrangeObjects": [
+          1,
+          0
+        ]
+      }
+    ]
+  },
+  "009d5c81": {
+    "cache": {
+      "a": {
+        "filter": {
+          "color": 1,
+          "kind": "glyph"
+        }
+      },
+      "b": {
+        "filter": {}
+      },
+      "c": {
+        "object.glyph": {
+          "color": 3
+        }
+      },
+      "d": {
+        "object.glyph": {
+          "color": 4
+        }
+      },
+      "e": {
+        "object.glyph": {
+          "color": 5
+        }
+      }
+    },
+    "input": {
+      "object.group": {
+        "arrangement.free": {
+          "size": {
+            "width": 14,
+            "height": 14
+          },
+          "count": 2,
+          "sequence": {
+            "prefix": [
+              0,
+              1
+            ]
+          },
+          "spacing": { "margin": 0, "gap": 1 }
+        },
+        "pool": [
+          {
+            "object.tree": {
+              "color": 2,
+              "count": [15, 30]
+            }
+          },
+          {
+            "object.glyph": {
+              "source": ["c", "d", "e"],
+              "color": 1
+            }
+          }
+        ]
+      }
+    },
+    "samples": {
+      "train": [
+        4,
+        5
+      ],
+      "test": [
+        1,
+        2
+      ]
+    },
+    "palette": {
+      "0": 0,
+      "1": 1
+    },
+    "skeleton": [
+      {
+        "PickObject": [
+          "a",
+          0
+        ]
+      },
+      {
+        "ExtractSourceColor": [
+          1
+        ]
+      },
+      {
+        "RemoveObject": [
+          0,
+          1
+        ]
+      },
+      {
+        "PickObject": [
+          "b",
+          3
+        ]
+      },
+      {
+        "ChangeColor": [
+          2,
+          3,
+          4
+        ]
+      }
+    ]
   }
 }

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 from sparc_agi.features.base import Scalar, register_feature
-from sparc_agi.features.range import Range
+from sparc_agi.features.scalars.range import Range
 
 # Dihedral ops for d // 2 (same order as the input-rendering PoC), plus optional +45° when d % 2.
 _TRANSFORMS = (

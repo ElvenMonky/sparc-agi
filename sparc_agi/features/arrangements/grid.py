@@ -5,11 +5,8 @@ from dataclasses import dataclass, field
 
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.base import register_feature
-from sparc_agi.features.count import Count
-from sparc_agi.features.orientation import Orientation, transform_xy
-from sparc_agi.features.range import Range
-from sparc_agi.features.sequence import Sequence
-from sparc_agi.features.size import Size
+from sparc_agi.features.scalars.orientation import Orientation, transform_xy
+from sparc_agi.features.scalars.range import Range
 
 
 def _scan_phrase(direction: int) -> str | None:
@@ -46,13 +43,10 @@ class GridArrangement(Arrangement):
     """Rectangular arrangement: scan a size×orientation grid, then apply sequence.
 
     Instantiation yields ``[((x, y), pool_index), ...]`` with empty (``-1``)
-    sequence slots removed.
+    sequence slots removed. ``count`` (when set) keeps a prefix of those slots.
     """
 
-    size: Size
-    sequence: Sequence
     orientation: Orientation = field(default_factory=lambda: Orientation(value=Range(0)))
-    count: Count | None = None  # omit → fill as many slots as the footprint allows
 
     @staticmethod
     def scan_cells(width: int, height: int, direction: int) -> list[tuple[int, int]]:
@@ -79,13 +73,17 @@ class GridArrangement(Arrangement):
             text += f", applied {scan}"
         if self.count is not None:
             text += f", {self.count.describe()}"
+        if not self.is_default("spacing"):
+            spacing = self.spacing.describe()
+            if spacing:
+                text += f", {spacing}"
         return text
 
     def instantiate(self, rng: random.Random) -> list[tuple[tuple[int, int], int]]:
         width, height = self.size.instantiate(rng)
         direction = self.orientation.instantiate(rng)
         coords = self.scan_cells(width, height, direction)
-        self.sequence.instantiate(rng)  # (prefix, cycle, suffix); sequence is data-only
+        self.sequence.instantiate(rng)
         n = len(coords)
         out: list[tuple[tuple[int, int], int]] = []
         for i, coord in enumerate(coords):

@@ -27,10 +27,13 @@ import cattrs
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
 from sparc_agi.features import FEATURE_REGISTRY, Feature, Size, feature_family
+from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.base import Scalar
-from sparc_agi.features.height import Height
-from sparc_agi.features.range import Range
-from sparc_agi.features.width import Width
+from sparc_agi.features.scalars.height import Height
+from sparc_agi.features.objects.base import Object
+from sparc_agi.features.scalars.range import Range
+from sparc_agi.features.spacing import GapSpec, MarginSpec
+from sparc_agi.features.scalars.width import Width
 from sparc_agi.puzzle import Puzzle, PuzzleSource, SpecError
 from sparc_agi.transformations import TRANSFORMATION_REGISTRY, Transformation, WireRef
 
@@ -45,7 +48,7 @@ def _is_plain_dataclass(t: Any) -> bool:
     return (
         is_dataclass(t)
         and isinstance(t, type)
-        and t not in (Size, Range)
+        and t not in (Size, Range, GapSpec, MarginSpec)
         and not issubclass(t, (Feature, Transformation))
     )
 
@@ -71,6 +74,30 @@ def unstructure_range(obj: Range) -> int | list[int]:
 
 converter.register_structure_hook(Range, structure_range)
 converter.register_unstructure_hook(Range, unstructure_range)
+
+
+def structure_gap_spec(obj: Any, _type: type) -> GapSpec:
+    return GapSpec.from_raw(obj)
+
+
+def unstructure_gap_spec(obj: GapSpec) -> int | list[int] | dict[str, int | list[int]]:
+    return obj.to_raw()
+
+
+def structure_margin_spec(obj: Any, _type: type) -> MarginSpec:
+    return MarginSpec.from_raw(obj)
+
+
+def unstructure_margin_spec(
+    obj: MarginSpec,
+) -> int | list[int] | dict[str, int | list[int]]:
+    return obj.to_raw()
+
+
+converter.register_structure_hook(GapSpec, structure_gap_spec)
+converter.register_unstructure_hook(GapSpec, unstructure_gap_spec)
+converter.register_structure_hook(MarginSpec, structure_margin_spec)
+converter.register_unstructure_hook(MarginSpec, unstructure_margin_spec)
 
 
 def structure_scalar_feature(obj: Any, cls: type[Feature]) -> Feature:
@@ -177,9 +204,9 @@ def _structure_concrete(payload: Any, cls: type) -> Any:
         payload = _normalize_composite_payload(payload, cls)
     kwargs: dict[str, Any] = {}
     if isinstance(cls, type) and issubclass(cls, Feature):
-        # Provenance / aliases are runtime-only; never read from the source JSON.
-        kwargs["source"] = override(omit=True)
+        # Runtime-only fields. ``source`` is *not* omitted: bible may set cache keys.
         kwargs["alias"] = override(omit=True)
+        kwargs["geometry_index"] = override(omit=True)
     return make_dict_structure_fn(cls, converter, **kwargs)(payload, cls)
 
 
@@ -207,7 +234,7 @@ def _unstructure_composite_payload(obj: Feature) -> dict[str, Any]:
         val = getattr(obj, f.name)
         if val is None:
             continue
-        # Omit nested defaults (e.g. Group.spacing, Sequence.prefix).
+        # Omit nested defaults (e.g. Arrangement.spacing, Sequence.prefix).
         if f.default_factory is not MISSING and val == f.default_factory():
             continue
         if f.default is not MISSING and val == f.default:
@@ -217,15 +244,22 @@ def _unstructure_composite_payload(obj: Feature) -> dict[str, Any]:
         elif isinstance(val, Feature):
             tagged = unstructure_feature(val)
             ((tag, inner),) = tagged.items()
-            # Field name matches tag → bare payload; polymorphic Feature slot → flat tag.
+            # Field name matches tag → bare payload; polymorphic slot → flat kind tag.
+            ann = hints.get(f.name)
             if tag == f.name:
                 payload[f.name] = inner
-            elif hints.get(f.name) is Feature:
+            elif ann in (Feature, Arrangement, Object):
                 payload[tag] = inner
             else:
                 payload[f.name] = tagged
         else:
             payload[f.name] = converter.unstructure(val)
+    # ``source`` is not a trait (inheritance), but bible cache keys round-trip.
+    src = obj.source
+    if isinstance(src, str):
+        payload["source"] = src
+    elif isinstance(src, list) and src and all(isinstance(k, str) for k in src):
+        payload["source"] = list(src)
     return payload
 
 
@@ -290,6 +324,41 @@ def unstructure_transformation(obj: Transformation) -> dict[str, Any]:
 # Exact base types only — concrete subclasses structure via _structure_concrete.
 converter.register_structure_hook_func(lambda t: t is Feature, structure_feature)
 converter.register_structure_hook_func(lambda t: t is Transformation, structure_transformation)
+
+
+def structure_arrangement(obj: Any, _type: type) -> Arrangement:
+    """Tagged arrangement union (``arrangement.grid``, ``arrangement.free``, …)."""
+    feat = structure_feature(obj, Feature)
+    if type(feat).__feature_family__ != "arrangement":
+        raise ValueError(
+            f"expected an arrangement feature, got {type(feat).__feature_name__}"
+        )
+    assert isinstance(feat, Arrangement)
+    return feat
+
+
+def structure_object(obj: Any, _type: type) -> Object:
+    """Tagged object union (``object.sprite``, ``object.group``, …)."""
+    feat = structure_feature(obj, Feature)
+    if type(feat).__feature_family__ != "object":
+        raise ValueError(f"expected an object feature, got {type(feat).__feature_name__}")
+    assert isinstance(feat, Object)
+    return feat
+
+
+def _is_object_list(t: Any) -> bool:
+    return get_origin(t) is list and get_args(t) == (Object,)
+
+
+def structure_object_list(obj: Any, _type: type) -> list[Object]:
+    if not isinstance(obj, list):
+        raise ValueError(f"object pool must be a list, got {obj!r}")
+    return [structure_object(item, Object) for item in obj]
+
+
+converter.register_structure_hook_func(lambda t: t is Arrangement, structure_arrangement)
+converter.register_structure_hook_func(lambda t: t is Object, structure_object)
+converter.register_structure_hook_func(_is_object_list, structure_object_list)
 
 converter.register_unstructure_hook_func(
     lambda cls: isinstance(cls, type) and issubclass(cls, Feature),

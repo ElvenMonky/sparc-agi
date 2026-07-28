@@ -11,13 +11,18 @@ from sparc_agi.features.base import (
     feature_family,
     register_feature,
 )
-from sparc_agi.features.range import Range
-from sparc_agi.features.sequence import Sequence
-from sparc_agi.features.size import Size
+from sparc_agi.features.scalars import load_scalar_features
+from sparc_agi.features.scalars.range import Range
+
+load_scalar_features()
+
+from sparc_agi.features.scalars.size import Size  # noqa: E402
+from sparc_agi.features.sequence import Sequence  # noqa: E402
 
 for _, module_name, _ in pkgutil.iter_modules([str(Path(__file__).resolve().parent)]):
-    if module_name != "base":
-        importlib.import_module(f"{__name__}.{module_name}")
+    if module_name in ("base", "scalars"):
+        continue
+    importlib.import_module(f"{__name__}.{module_name}")
 
 __all__ = [
     "FEATURE_REGISTRY",

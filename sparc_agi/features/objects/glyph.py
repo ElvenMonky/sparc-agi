@@ -3,17 +3,18 @@
 import random
 from dataclasses import dataclass, field
 
+from sparc_agi.canvas import Geometry, point_geometry
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.arrangements.random import RandomArrangement
-from sparc_agi.features.base import register_feature
-from sparc_agi.features.color import Color
-from sparc_agi.features.count import Count
-from sparc_agi.features.height import Height
+from sparc_agi.features.base import Feature, register_feature
+from sparc_agi.features.scalars.color import Color
+from sparc_agi.features.scalars.count import Count
+from sparc_agi.features.scalars.height import Height
 from sparc_agi.features.objects.base import Object
-from sparc_agi.features.range import Range
+from sparc_agi.features.scalars.range import Range
 from sparc_agi.features.sequence import Sequence
-from sparc_agi.features.size import Size
-from sparc_agi.features.width import Width
+from sparc_agi.features.scalars.size import Size
+from sparc_agi.features.scalars.width import Width
 
 
 def _default_glyph_arrangement() -> RandomArrangement:
@@ -33,8 +34,9 @@ def _default_glyph_arrangement() -> RandomArrangement:
 class Glyph(Object):
     """Sparse motif on a built-in random arrangement.
 
-    Traits: ``color`` only. ``arrangement`` is read-only structure (not a trait):
-    it can be extracted but not rewritten by transforms.
+    Traits: ``color``. Optional ``source`` (on :class:`Feature`) inherits from
+    any preceding stage (cache keys or a parent feature). ``arrangement`` is
+    read-only structure (not a trait).
     """
 
     __non_traits__ = frozenset({"arrangement"})
@@ -43,23 +45,27 @@ class Glyph(Object):
     arrangement: Arrangement = field(default_factory=_default_glyph_arrangement)
 
     def describe(self) -> str:
-        if self.source is not None and getattr(self.source, "alias", None):
+        if isinstance(self.source, Feature) and getattr(self.source, "alias", None):
             base = self.source.alias
         else:
             base = "glyph"
         if self.is_default("color"):
             return base
-        return f"{base}, {self.color.describe()}"
+        return f"{self.color.describe()} {base}"
 
-    def instantiate(self, rng: random.Random) -> list[list[int]]:
+    def instantiate(self, rng: random.Random) -> Geometry:
+        color = self.color.instantiate(rng)
+        if self.cache_source_keys():
+            return self.instantiate_from_source(rng, color=color)
+
         size = getattr(self.arrangement, "size", None)
         if size is None:
-            raise TypeError(f"{type(self.arrangement).__name__} has no size for glyph paint")
+            raise TypeError(f"{type(self.arrangement).__name__} has no size for glyph")
         width, height = size.instantiate(rng)
         placements = self.arrangement.instantiate(rng)
-        color = self.color.instantiate(rng)
-        grid = [[0] * width for _ in range(height)]
-        for (x, y), _ in placements:
-            if 0 <= x < width and 0 <= y < height:
-                grid[y][x] = color
-        return grid
+        children = [
+            point_geometry(color, x=x, y=y)
+            for (x, y), _ in placements
+            if 0 <= x < width and 0 <= y < height
+        ]
+        return Geometry(width=width, height=height, color=color, geometries=children)

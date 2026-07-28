@@ -1,7 +1,5 @@
 """ARC color indices, names, and per-puzzle palette remapping."""
 
-from __future__ import annotations
-
 import random
 from contextlib import contextmanager
 from contextvars import ContextVar

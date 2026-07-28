@@ -2,9 +2,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from sparc_agi.canvas import Geometry
 from sparc_agi.features.base import Feature
 from sparc_agi.features.objects.group import Group, join_copy_refs
-from sparc_agi.grid import Grid, Placement, compose_placements
+from sparc_agi.grid import Placement
 from sparc_agi.transformations.base import Transformation, register_transformation
 
 
@@ -46,19 +47,20 @@ class ArrangeObjects(Transformation):
         *,
         step: int,
         feature_inputs: Sequence[Feature] | None = None,
-    ) -> Grid:
-        del step
+        feature_output: Feature | None = None,
+    ) -> Geometry:
+        del step, feature_output
         arrangement, *objects = inputs
         if not isinstance(arrangement, list):
             raise TypeError(
                 f"ArrangeObjects.instantiate expects placement list, got {type(arrangement).__name__}"
             )
         if not objects:
-            raise ValueError("ArrangeObjects requires at least one object grid")
+            raise ValueError("ArrangeObjects requires at least one object")
         for obj in objects:
-            if not isinstance(obj, list):
+            if not isinstance(obj, Geometry):
                 raise TypeError(
-                    f"ArrangeObjects.instantiate expects object grids, got {type(obj).__name__}"
+                    f"ArrangeObjects.instantiate expects Geometry objects, got {type(obj).__name__}"
                 )
         placements: list[Placement] = arrangement
         width = height = None
@@ -69,10 +71,28 @@ class ArrangeObjects(Transformation):
                 wv, hv = size.width.value, size.height.value
                 if wv.lo == wv.hi and hv.lo == hv.hi:
                     width, height = wv.lo, hv.lo
-        return compose_placements(placements, list(objects), width=width, height=height)
+        if width is None:
+            width = max((x for (x, _), _ in placements), default=-1) + 1
+        if height is None:
+            height = max((y for (_, y), _ in placements), default=-1) + 1
+
+        cell_w = max((o.size()[0] for o in objects), default=1)
+        cell_h = max((o.size()[1] for o in objects), default=1)
+        children: list[Geometry] = []
+        for (gx, gy), pool_idx in placements:
+            if pool_idx < 0 or pool_idx >= len(objects):
+                continue
+            child = objects[pool_idx].copy()
+            child.x = gx * cell_w
+            child.y = gy * cell_h
+            child.slot = pool_idx
+            children.append(child)
+        out_w = width * cell_w
+        out_h = height * cell_h
+        return Geometry(width=out_w, height=out_h, geometries=children)
 
     def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
         del output, step
         arrangement, *objects = inputs
         refs = [obj.refer() for obj in objects]
-        return f"Arrange {join_copy_refs(refs)} into {arrangement.describe()}."
+        return f"Arrange {join_copy_refs(refs)} into {arrangement.refer()}."

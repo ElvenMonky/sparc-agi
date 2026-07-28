@@ -5,9 +5,6 @@ from dataclasses import dataclass
 
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.base import register_feature
-from sparc_agi.features.count import Count
-from sparc_agi.features.sequence import Sequence
-from sparc_agi.features.size import Size
 
 
 @register_feature("arrangement.random")
@@ -20,15 +17,8 @@ class RandomArrangement(Arrangement):
     Instantiation yields ``[((x, y), pool_index), ...]``.
     """
 
-    size: Size
-    sequence: Sequence
-    count: Count | None = None  # omit → fill as many slots as the footprint allows
-
     def describe(self) -> str:
-        text = f"a {self.size.describe()} random arrangement using {self.sequence.describe()}"
-        if self.count is not None:
-            text += f", {self.count.describe()}"
-        return text
+        return self.describe_core("random arrangement")
 
     def instantiate(self, rng: random.Random) -> list[tuple[tuple[int, int], int]]:
         width, height = self.size.instantiate(rng)

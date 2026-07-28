@@ -1,9 +1,10 @@
 """Grid helpers for object instantiation and transformation."""
 
-from sparc_agi.features.orientation import transform_xy
+from sparc_agi.features.scalars.orientation import transform_xy
 
 Grid = list[list[int]]
 Placement = tuple[tuple[int, int], int]
+BBox = tuple[int, int, int, int]  # x, y, w, h
 
 
 def grid_size(grid: Grid) -> tuple[int, int]:
@@ -50,20 +51,57 @@ def placements_to_mask(placements: list[Placement]) -> Grid:
     return out
 
 
+def _stamp_clipped(out: Grid, stamp: Grid, ox: int, oy: int) -> None:
+    """Stamp ``stamp`` onto ``out`` at ``(ox, oy)``, clipping to canvas bounds."""
+    out_h = len(out)
+    out_w = len(out[0]) if out else 0
+    sw, sh = grid_size(stamp)
+    for y in range(sh):
+        py = oy + y
+        if py < 0 or py >= out_h:
+            continue
+        for x in range(sw):
+            px = ox + x
+            if px < 0 or px >= out_w:
+                continue
+            val = stamp[y][x]
+            if val < 0:
+                continue
+            out[py][px] = val
+
+
+def bboxes_respect_gap(a: BBox, b: BBox, gap_x: int, gap_y: int) -> bool:
+    """True if boxes keep at least ``gap_x`` / ``gap_y`` between edges.
+
+    Gaps may be negative to allow overlap of up to ``-gap`` pixels on that axis.
+    """
+    ax, ay, aw, ah = a
+    bx, by, bw, bh = b
+    return (
+        ax + aw + gap_x <= bx
+        or bx + bw + gap_x <= ax
+        or ay + ah + gap_y <= by
+        or by + bh + gap_y <= ay
+    )
+
+
 def compose_placements(
     placements: list[Placement],
     pool: list[Grid],
     *,
     width: int | None = None,
     height: int | None = None,
-    gap: int = 0,
-    margin: int = 0,
+    gap_x: int = 0,
+    gap_y: int = 0,
+    margin_left: int = 0,
+    margin_right: int = 0,
+    margin_top: int = 0,
+    margin_bottom: int = 0,
 ) -> Grid:
-    """Stamp pool grids onto arrangement slots.
+    """Stamp pool grids onto a virtual-cell arrangement.
 
-    ``placements`` entries are ``((grid_x, grid_y), pool_index)``. Empty /
-    missing slots stay transparent (``-1``); callers can convert with
-    ``to_arc_grid`` for ARC JSON output.
+    ``placements`` entries are ``((cell_x, cell_y), pool_index)``. Cell size is
+    the max pool item size; gaps / margins are in pixels (may be negative).
     """
     if not pool:
         raise ValueError("compose_placements requires a non-empty pool")
@@ -79,12 +117,16 @@ def compose_placements(
     if width <= 0 or height <= 0:
         return []
 
-    stride_x = cell_w + gap
-    stride_y = cell_h + gap
-    out_w = margin * 2 + width * cell_w + max(0, width - 1) * gap
-    out_h = margin * 2 + height * cell_h + max(0, height - 1) * gap
-    out: Grid = [[-1] * out_w for _ in range(out_h)]
+    stride_x = cell_w + gap_x
+    stride_y = cell_h + gap_y
+    content_w = (width - 1) * stride_x + cell_w
+    content_h = (height - 1) * stride_y + cell_h
+    out_w = content_w + margin_left + margin_right
+    out_h = content_h + margin_top + margin_bottom
+    if out_w <= 0 or out_h <= 0:
+        return []
 
+    out: Grid = [[-1] * out_w for _ in range(out_h)]
     filled = {(x, y): idx for (x, y), idx in placements}
     for gy in range(height):
         for gx in range(width):
@@ -92,13 +134,21 @@ def compose_placements(
             if idx is None or idx < 0 or idx >= len(pool):
                 continue
             stamp = pool[idx]
-            sw, sh = grid_size(stamp)
-            ox = margin + gx * stride_x
-            oy = margin + gy * stride_y
-            for y in range(sh):
-                for x in range(sw):
-                    val = stamp[y][x]
-                    if val < 0:
-                        continue
-                    out[oy + y][ox + x] = val
+            ox = margin_left + gx * stride_x
+            oy = margin_top + gy * stride_y
+            _stamp_clipped(out, stamp, ox, oy)
+    return out
+
+
+def compose_free(
+    width: int,
+    height: int,
+    items: list[tuple[tuple[int, int], Grid]],
+) -> Grid:
+    """Stamp items at absolute pixel top-lefts onto a fixed-size object grid."""
+    if width <= 0 or height <= 0:
+        return []
+    out: Grid = [[-1] * width for _ in range(height)]
+    for (ox, oy), stamp in items:
+        _stamp_clipped(out, stamp, ox, oy)
     return out

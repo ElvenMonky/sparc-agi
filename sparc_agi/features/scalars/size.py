@@ -12,8 +12,8 @@ Top-level cache/input entries can still use the tagged feature form
 import random
 from dataclasses import dataclass
 
-from sparc_agi.features.height import Height
-from sparc_agi.features.width import Width
+from sparc_agi.features.scalars.height import Height
+from sparc_agi.features.scalars.width import Width
 
 
 @dataclass

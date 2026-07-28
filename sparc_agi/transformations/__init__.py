@@ -12,7 +12,7 @@ from sparc_agi.transformations.base import (
 )
 
 for _, module_name, _ in pkgutil.iter_modules([str(Path(__file__).resolve().parent)]):
-    if module_name != "base":
+    if module_name != "base" and not module_name.startswith("_"):
         importlib.import_module(f"{__name__}.{module_name}")
 
 __all__ = [

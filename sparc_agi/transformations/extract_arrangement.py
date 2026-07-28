@@ -2,19 +2,19 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from sparc_agi.canvas import Geometry
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.base import Feature
-from sparc_agi.grid import Grid, Placement
+from sparc_agi.grid import Placement
 from sparc_agi.transformations.base import Transformation, register_transformation
 
 
-def _placements_from_grid(grid: Grid) -> list[Placement]:
-    """Occupied cells (positive colors) as pool-index-0 placements."""
+def _placements_from_geometry(geom: Geometry) -> list[Placement]:
+    """Occupied positive cells as pool-index-0 placements (local to geom)."""
     out: list[Placement] = []
-    for y, row in enumerate(grid):
-        for x, val in enumerate(row):
-            if val > 0:
-                out.append(((x, y), 0))
+    for x, y, c in geom.as_root().render():
+        if c is not None and c > 0:
+            out.append(((x, y), 0))
     return out
 
 
@@ -23,8 +23,8 @@ def _placements_from_grid(grid: Grid) -> list[Placement]:
 class ExtractArrangement(Transformation):
     """Pull a read-only arrangement off an object; inputs ``[object]`` → ``arrangement``.
 
-    At instantiate time, recovers placements from occupied cells of the object grid
-    (so the sampled glyph pattern is preserved for later ArrangeObjects).
+    At instantiate time, recovers placements from occupied cells of the object
+    geometry (so sampled glyph patterns are preserved for later mapping/arrange).
     """
 
     input_features = ("object",)
@@ -45,7 +45,7 @@ class ExtractArrangement(Transformation):
                 f"got {type(arrangement).__name__}"
             )
         out = arrangement.derived()
-        out.alias = f"arrangement from step {step}"
+        out.alias = f"arrangement extracted on step {step}"
         return out
 
     def instantiate(
@@ -54,14 +54,15 @@ class ExtractArrangement(Transformation):
         *,
         step: int,
         feature_inputs: Sequence[Feature] | None = None,
+        feature_output: Feature | None = None,
     ) -> list[Placement]:
-        del step, feature_inputs
+        del step, feature_inputs, feature_output
         (obj,) = inputs
-        if not isinstance(obj, list):
+        if not isinstance(obj, Geometry):
             raise TypeError(
-                f"ExtractArrangement.instantiate expects object grid, got {type(obj).__name__}"
+                f"ExtractArrangement.instantiate expects Geometry, got {type(obj).__name__}"
             )
-        return _placements_from_grid(obj)
+        return _placements_from_geometry(obj)
 
     def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
         del output, step

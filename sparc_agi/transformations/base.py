@@ -88,13 +88,16 @@ class Transformation:
         *,
         step: int,
         feature_inputs: Sequence[Feature] | None = None,
+        feature_output: Feature | None = None,
     ) -> Any:
         """Apply this transformation to already-instantiated input values.
 
         ``feature_inputs`` are the same wires resolved on the feature tree
         (when available), for transforms that need trait checks at instantiate.
+        ``feature_output`` is the feature produced by :meth:`apply` for this step
+        (carries e.g. ``geometry_index`` for pick/remove).
         """
-        del feature_inputs
+        del feature_inputs, feature_output
         raise NotImplementedError(f"{type(self).__name__}.instantiate() is not implemented")
 
     def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:

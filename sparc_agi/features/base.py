@@ -8,15 +8,12 @@ The tag is ``<family>`` or ``<family>.<kind>``. The family (part before the
 dot) is what transformations match on; kinds are interchangeable in a slot
 that expects that family (e.g. ``object.sprite`` satisfies an ``object`` slot).
 
-**Traits.** Every dataclass field on a feature (except provenance ``source`` /
-``alias``) is an editable trait. Transformations use :meth:`has_trait` to
-require or optionally special-case a trait (e.g. Rotate + ``orientation``).
-Prefer methods for non-editable structure (e.g. Sprite ``as_group()``). To
-keep a dataclass field that is *not* a trait, list it on ``__non_traits__``::
-
-    __non_traits__ = frozenset({"internal_cache"})
-
-Provenance fields are always excluded; ``__non_traits__`` only names extras.
+**Traits.** Every dataclass field on a feature (except ``source`` / ``alias`` /
+``geometry_index``) is an editable trait. ``source`` is inheritance, not a
+filterable trait. Pipeline order is cache → input → transformations; ``source``
+may refer to any preceding stage — bible ``list[str]`` / ``str`` cache keys, or
+a parent :class:`Feature` (cache entry, puzzle input, or earlier step output)
+after :meth:`derived`.
 
 Register a new feature with ``@register_feature("feature.name")``. Scalar
 features subclass :class:`Scalar` (single ``value: Range`` field); composites
@@ -24,17 +21,18 @@ subclass :class:`Feature` directly.
 """
 
 import random
+from collections.abc import Iterator
 from dataclasses import MISSING, dataclass, field, fields, replace
 from typing import Any, Callable, ClassVar, Self, TypeVar
 
-from sparc_agi.features.range import Range
+from sparc_agi.features.scalars.range import Range
 
 F = TypeVar("F", bound="Feature")
 
 FEATURE_REGISTRY: dict[str, type[Feature]] = {}
 
-# Provenance fields present on every Feature; never traits / source payload.
-_PROVENANCE_FIELDS: frozenset[str] = frozenset({"source", "alias"})
+# Not filterable traits; ``source`` is still loaded from the bible when present.
+_PROVENANCE_FIELDS: frozenset[str] = frozenset({"source", "alias", "geometry_index"})
 
 
 def feature_family(name: str) -> str:
@@ -51,11 +49,14 @@ class Feature:
     # Extra field names that are not traits (provenance is always excluded).
     __non_traits__: ClassVar[frozenset[str]] = frozenset()
 
-    # Provenance link set when a transformation derives a copy from this feature.
-    # Typed as Any so cattrs/dataclass tooling does not choke on a self-type.
+    # Inheritance from any preceding stage (cache → input → transforms):
+    # bible cache key(s) ``str`` / ``list[str]``, or a parent Feature after
+    # ``derived()`` (that parent may itself be cache, input, or a prior step).
     source: Any = field(default=None, kw_only=True, compare=False, repr=False)
     # Referential name for descriptions ("input sprite", "rotated sprite from step 1").
     alias: str | None = field(default=None, kw_only=True, compare=False, repr=False)
+    # Child index in a parent Geometry.geometries list (set by PickObject, etc.).
+    geometry_index: int | None = field(default=None, kw_only=True, compare=False, repr=False)
 
     @classmethod
     def trait_names(cls) -> frozenset[str]:
@@ -72,8 +73,22 @@ class Feature:
         return self.__feature_name__.rsplit(".", 1)[-1]
 
     def derived(self, **changes) -> Self:
-        """Return a copy of this feature with ``source`` pointing at ``self``."""
-        return replace(self, source=self, alias=None, **changes)
+        """Copy with ``source`` pointing at ``self`` (unless ``source`` is overridden)."""
+        if "geometry_index" not in changes:
+            changes["geometry_index"] = None
+        if "source" not in changes:
+            changes["source"] = self
+        return replace(self, alias=None, **changes)
+
+    def iter_source(self) -> Iterator[Feature]:
+        """Walk ``self``, then each Feature-valued ``source``, until cache keys / None."""
+        cur: Feature | None = self
+        seen: set[int] = set()
+        while isinstance(cur, Feature) and id(cur) not in seen:
+            yield cur
+            seen.add(id(cur))
+            nxt = cur.source
+            cur = nxt if isinstance(nxt, Feature) else None
 
     def refer(self) -> str:
         """Name used when this feature is referenced from another description."""
@@ -84,7 +99,7 @@ class Feature:
         for f in fields(type(self)):
             if f.name != field_name:
                 continue
-            val = getattr(self, field_name)
+            val = getattr(self, f.name)
             if f.default_factory is not MISSING:
                 return val == f.default_factory()
             if f.default is not MISSING:

@@ -3,17 +3,17 @@
 import random
 from dataclasses import dataclass, field
 
+from sparc_agi.canvas import Geometry
 from sparc_agi.features.arrangements.grid import GridArrangement
-from sparc_agi.features.base import register_feature
-from sparc_agi.features.color import Color
+from sparc_agi.features.base import Feature, register_feature
+from sparc_agi.features.scalars.color import Color
 from sparc_agi.features.objects.base import Object
 from sparc_agi.features.objects.group import Group
 from sparc_agi.features.objects.point import Point
-from sparc_agi.features.orientation import Orientation
-from sparc_agi.features.range import Range
+from sparc_agi.features.scalars.orientation import Orientation
+from sparc_agi.features.scalars.range import Range
 from sparc_agi.features.sequence import Sequence
-from sparc_agi.features.size import Size
-from sparc_agi.grid import apply_orientation
+from sparc_agi.features.scalars.size import Size
 
 
 @register_feature("object.sprite")
@@ -46,7 +46,7 @@ class Sprite(Object):
         if not self.is_default("orientation"):
             extras.append(self.orientation.describe())
 
-        if self.source is not None and getattr(self.source, "alias", None):
+        if isinstance(self.source, Feature) and getattr(self.source, "alias", None):
             base = self.source.alias
         else:
             base = f"{self.size.describe()} sprite"
@@ -55,9 +55,9 @@ class Sprite(Object):
             return base
         return f"{base}, {', '.join(extras)}"
 
-    def instantiate(self, rng: random.Random) -> list[list[int]]:
-        grid = self.as_group().instantiate(rng)
+    def instantiate(self, rng: random.Random) -> Geometry:
+        geom = self.as_group().instantiate(rng)
         direction = self.orientation.instantiate(rng)
         if direction == 0:
-            return grid
-        return apply_orientation(grid, direction)
+            return geom
+        return geom.apply_orientation(direction)

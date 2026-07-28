@@ -9,8 +9,8 @@ from matplotlib.colors import ListedColormap
 from matplotlib.figure import Figure
 
 from sparc_agi.features.base import Feature
-from sparc_agi.features.orientation import Orientation
-from sparc_agi.features.range import Range
+from sparc_agi.features.scalars.orientation import Orientation
+from sparc_agi.features.scalars.range import Range
 
 # Standard ARC palette (0–9), plus an extra slot for out-of-range values like 10.
 ARC_COLORS = [
@@ -82,7 +82,12 @@ def _is_arrangement_step(value: Any) -> bool:
 
 
 def plot_step_visual(ax: Axes, value: Any, title: str = "") -> None:
-    """Draw a sample step: ARC object grid or arrangement index grid."""
+    """Draw a sample step: ARC object grid, arrangement index grid, or color swatch."""
+    from sparc_agi.canvas import Geometry
+
+    if isinstance(value, Geometry):
+        plot_arc_grid(ax, value.to_grid(background=0), title=title)
+        return
     if _is_arrangement_step(value):
         placements = value.get("placements") or []
         plot_index_grid(
@@ -101,9 +106,13 @@ def plot_step_visual(ax: Axes, value: Any, title: str = "") -> None:
     if _is_int_grid(value):
         plot_arc_grid(ax, value, title=title)
         return
+    if isinstance(value, int) and not isinstance(value, bool):
+        # Scalar color: swatch so the step row isn't an empty gap.
+        plot_arc_grid(ax, [[value] * 3 for _ in range(3)], title=title or f"color {value}")
+        return
     ax.axis("off")
     if title:
-        ax.set_title(title, fontsize=10)
+        ax.set_title(title, fontsize=9, pad=2)
 
 
 def plot_arc_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> None:
@@ -111,21 +120,30 @@ def plot_arc_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> None
     if not grid_data or not grid_data[0]:
         ax.axis("off")
         if title:
-            ax.set_title(title, fontsize=10)
+            ax.set_title(title, fontsize=9, pad=2)
         return
 
     grid = np.asarray(grid_data, dtype=int)
     display = np.clip(grid, 0, len(ARC_COLORS) - 1)
-    ax.imshow(display, cmap=ARC_CMAP, vmin=0, vmax=len(ARC_COLORS) - 1, interpolation="nearest")
+    ax.imshow(
+        display,
+        cmap=ARC_CMAP,
+        vmin=0,
+        vmax=len(ARC_COLORS) - 1,
+        interpolation="nearest",
+        aspect="equal",
+    )
+    # Keep cells square even when the gridspec slot is tall/wide.
+    ax.set_box_aspect(grid.shape[0] / max(grid.shape[1], 1))
     ax.set_xticks(np.arange(-0.5, grid.shape[1], 1), minor=True)
     ax.set_yticks(np.arange(-0.5, grid.shape[0], 1), minor=True)
-    ax.grid(which="minor", color="white", linestyle="-", linewidth=1.0)
+    ax.grid(which="minor", color="white", linestyle="-", linewidth=0.6)
     ax.tick_params(which="both", bottom=False, left=False, labelbottom=False, labelleft=False)
     for spine in ax.spines.values():
         spine.set_visible(True)
-        spine.set_linewidth(0.8)
+        spine.set_linewidth(0.5)
     if title:
-        ax.set_title(title, fontsize=10)
+        ax.set_title(title, fontsize=8, pad=1)
 
 
 def plot_index_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> None:
@@ -133,14 +151,22 @@ def plot_index_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> No
     if not grid_data or not grid_data[0]:
         ax.axis("off")
         if title:
-            ax.set_title(title, fontsize=10)
+            ax.set_title(title, fontsize=9, pad=2)
         return
 
     grid = np.asarray(grid_data, dtype=float)
     masked = np.ma.masked_where(grid < 0, grid)
     present = grid[grid >= 0]
     vmax = float(present.max()) if present.size else 1.0
-    ax.imshow(masked, cmap="Blues", vmin=-0.5, vmax=max(vmax, 1.0), interpolation="nearest")
+    ax.imshow(
+        masked,
+        cmap="Blues",
+        vmin=-0.5,
+        vmax=max(vmax, 1.0),
+        interpolation="nearest",
+        aspect="equal",
+    )
+    ax.set_box_aspect(grid.shape[0] / max(grid.shape[1], 1))
     for y in range(grid.shape[0]):
         for x in range(grid.shape[1]):
             val = int(grid[y, x])
@@ -150,13 +176,13 @@ def plot_index_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> No
                 ink = "0.45"
             else:
                 ink = "white" if (val / max(vmax, 1.0)) > 0.35 else "black"
-            ax.text(x, y, label, ha="center", va="center", fontsize=9, color=ink, fontweight="bold")
+            ax.text(x, y, label, ha="center", va="center", fontsize=8, color=ink, fontweight="bold")
     ax.set_xticks(np.arange(-0.5, grid.shape[1], 1), minor=True)
     ax.set_yticks(np.arange(-0.5, grid.shape[0], 1), minor=True)
-    ax.grid(which="minor", color="white", linestyle="-", linewidth=1.0)
+    ax.grid(which="minor", color="white", linestyle="-", linewidth=0.6)
     ax.tick_params(which="both", bottom=False, left=False, labelbottom=False, labelleft=False)
     if title:
-        ax.set_title(title, fontsize=10)
+        ax.set_title(title, fontsize=8, pad=1)
 
 
 def _orientation_short_label(direction: int) -> str:
@@ -181,15 +207,21 @@ def cache_kind_label(feature: Feature | None, value: Any) -> str:
         return feature.__feature_family__
     if isinstance(value, int) and not isinstance(value, bool):
         return "orientation"
-    if _is_placement_list(value):
+    if _is_arrangement_step(value) or _is_placement_list(value):
         return "arrangement"
     if _is_int_grid(value):
         return "object"
     return "value"
 
 
+def _cache_value_empty(value: Any) -> bool:
+    return value is None or value == {} or value == [] or value == ()
+
+
 def cache_value_summary(feature: Feature | None, value: Any) -> str:
     """Short natural-language line under the cache key header."""
+    if _cache_value_empty(value):
+        return "(empty)"
     if feature is not None and type(feature).__feature_family__ == "orientation":
         if isinstance(value, int) and not isinstance(value, bool):
             return _orientation_short_label(value)
@@ -197,12 +229,17 @@ def cache_value_summary(feature: Feature | None, value: Any) -> str:
         return feature.describe()
     if isinstance(value, int) and not isinstance(value, bool):
         return _orientation_short_label(value)
+    if _is_arrangement_step(value):
+        placements = value.get("placements") or []
+        return f"{len(placements)} placements"
     if _is_placement_list(value):
         return f"{len(value)} placements"
     if _is_int_grid(value):
         h = len(value)
         w = len(value[0]) if value else 0
         return f"{w}x{h} grid"
+    if feature is not None and type(feature).__feature_family__ == "filter":
+        return feature.describe()
     return repr(value)
 
 
@@ -211,12 +248,33 @@ def plot_cache_visual(ax: Axes, value: Any) -> bool:
     if _is_int_grid(value):
         plot_arc_grid(ax, value)
         return True
+    if _is_arrangement_step(value):
+        placements = value.get("placements") or []
+        plot_index_grid(
+            ax,
+            placements_to_index_grid(
+                placements,
+                width=value.get("width"),
+                height=value.get("height"),
+            ),
+        )
+        return True
     if _is_placement_list(value):
         plot_index_grid(ax, placements_to_index_grid(value))
         return True
     ax.axis("off")
     return False
 
+
+def _cache_has_visual(value: Any) -> bool:
+    return (
+        value is not None
+        and (
+            _is_int_grid(value)
+            or _is_placement_list(value)
+            or _is_arrangement_step(value)
+        )
+    )
 
 def render_generated_puzzle(
     puzzle_id: str,
@@ -255,71 +313,106 @@ def render_generated_puzzle(
     n_grid_rows = 1 + n_intermediates + 1  # input + intermediates + output
     n_cache = max(len(cache), 1)
 
-    fig_w = max(3.2 * n_samples, 3.0 * n_cache, 8)
-    fig_h = 1.0 + 2.4 + 0.35 + 2.2 * n_grid_rows + 1.8
+    # Cache row tall enough for small glyph grids without horizontal squash.
+    cell = 3.4
+    label_w = 0.7
+    cache_slot = 1.6
+    fig_w = max(label_w + cell * n_samples, cache_slot * n_cache, 8.0)
+    cache_h = 2.4
+    samples_h = cell * n_grid_rows
+    desc_h = 1.25
+    title_h = 0.28
+    fig_h = title_h + cache_h + samples_h + desc_h
     fig = plt.figure(figsize=(fig_w, fig_h), facecolor="white")
     outer = fig.add_gridspec(
         4,
         1,
-        height_ratios=[0.3, 2.2, 0.35 + 2.2 * n_grid_rows, 1.6],
-        hspace=0.4,
-        left=0.08,
-        right=0.98,
-        top=0.95,
-        bottom=0.04,
+        height_ratios=[title_h, cache_h, samples_h, desc_h],
+        hspace=0.08,
+        left=0.045,
+        right=0.998,
+        top=0.98,
+        bottom=0.015,
     )
 
     title = f"Puzzle {puzzle_id}"
     if generated_at:
         title = f"{title}  ·  {generated_at}"
-    fig.suptitle(title, fontsize=14, fontweight="bold", y=0.985)
+    fig.suptitle(title, fontsize=15, fontweight="bold", y=0.995)
 
     # Cache section (subtitle + per-item header/summary/visual)
-    cache_block = outer[1].subgridspec(2, 1, height_ratios=[0.18, 1.0], hspace=0.08)
+    cache_block = outer[1].subgridspec(2, 1, height_ratios=[0.14, 1.0], hspace=0.04)
     ax_cache_title = fig.add_subplot(cache_block[0])
     ax_cache_title.axis("off")
-    ax_cache_title.set_title("Cache", loc="left", fontsize=11, fontweight="bold", pad=2)
+    ax_cache_title.set_title("Cache", loc="left", fontsize=13, fontweight="bold", pad=0)
 
-    cache_items = list(cache.items()) or [("∅", None)]
-    items_gs = cache_block[1].subgridspec(1, n_cache, wspace=0.45)
-    for i, (key, value) in enumerate(cache_items):
-        feat = cache_features.get(key)
-        kind = cache_kind_label(feat, value)
-        summary = cache_value_summary(feat, value) if value is not None else "(empty)"
-        has_visual = value is not None and (_is_int_grid(value) or _is_placement_list(value))
-
-        if has_visual:
-            item_gs = items_gs[0, i].subgridspec(2, 1, height_ratios=[0.4, 1.0], hspace=0.12)
-            ax_label = fig.add_subplot(item_gs[0])
-            ax_vis = fig.add_subplot(item_gs[1])
-            plot_cache_visual(ax_vis, value)
-        else:
-            ax_label = fig.add_subplot(items_gs[0, i])
-            ax_vis = None
-
-        ax_label.axis("off")
-        ax_label.text(
+    cache_items = list(cache.items())
+    if not cache_items:
+        ax_empty = fig.add_subplot(cache_block[1])
+        ax_empty.axis("off")
+        ax_empty.text(
             0.0,
             1.0,
-            f"'{key}' ({kind})\n{summary}",
+            "(empty)",
             ha="left",
             va="top",
-            fontsize=10,
-            transform=ax_label.transAxes,
-            linespacing=1.35,
+            fontsize=11,
+            transform=ax_empty.transAxes,
         )
+    else:
+        items_gs = cache_block[1].subgridspec(1, len(cache_items), wspace=0.35)
+        for i, (key, value) in enumerate(cache_items):
+            feat = cache_features.get(key)
+            kind = cache_kind_label(feat, value)
+            summary = cache_value_summary(feat, value)
+            has_visual = _cache_has_visual(value)
 
-    # Samples section (subtitle + columns for input / intermediates / output)
-    samples_block = outer[2].subgridspec(2, 1, height_ratios=[0.18, 2.2 * n_grid_rows], hspace=0.08)
+            if has_visual:
+                item_gs = items_gs[0, i].subgridspec(2, 1, height_ratios=[0.28, 1.0], hspace=0.08)
+                ax_label = fig.add_subplot(item_gs[0])
+                ax_vis = fig.add_subplot(item_gs[1])
+                plot_cache_visual(ax_vis, value)
+            else:
+                ax_label = fig.add_subplot(items_gs[0, i])
+
+            ax_label.axis("off")
+            ax_label.text(
+                0.0,
+                1.0,
+                f"'{key}' ({kind})\n{summary}",
+                ha="left",
+                va="top",
+                fontsize=11,
+                transform=ax_label.transAxes,
+                linespacing=1.25,
+            )
+
+    # Samples section (subtitle + header row + labeled grid)
+    samples_block = outer[2].subgridspec(2, 1, height_ratios=[0.1, samples_h], hspace=0.01)
     ax_samples_title = fig.add_subplot(samples_block[0])
     ax_samples_title.axis("off")
-    ax_samples_title.set_title("Samples", loc="left", fontsize=11, fontweight="bold", pad=2)
+    ax_samples_title.set_title("Samples", loc="left", fontsize=13, fontweight="bold", pad=0)
 
-    sample_gs = samples_block[1].subgridspec(n_grid_rows, n_samples, wspace=0.25, hspace=0.35)
+    sample_gs = samples_block[1].subgridspec(
+        n_grid_rows + 1,
+        n_samples + 1,
+        width_ratios=[0.45] + [1.0] * n_samples,
+        height_ratios=[0.18] + [1.0] * n_grid_rows,
+        wspace=0.015,
+        hspace=0.02,
+    )
     row_labels = ["input"]
     for i in range(n_intermediates):
         row_labels.append(f"step {i + 1}")
     row_labels.append("output")
+
+    # Corner + column headers
+    ax_corner = fig.add_subplot(sample_gs[0, 0])
+    ax_corner.axis("off")
+    for col, (sample_name, _, _, _) in enumerate(samples):
+        ax_h = fig.add_subplot(sample_gs[0, col + 1])
+        ax_h.axis("off")
+        ax_h.text(0.5, 0.15, sample_name, ha="center", va="bottom", fontsize=10, transform=ax_h.transAxes)
 
     for col, (sample_name, inp, sample_steps, out) in enumerate(samples):
         intermediates = sample_steps[:-1] if len(sample_steps) > 1 else []
@@ -331,32 +424,41 @@ def render_generated_puzzle(
         row_values.append(final)
 
         for row, value in enumerate(row_values):
-            ax = fig.add_subplot(sample_gs[row, col])
-            sample_title = sample_name if row == 0 else ""
-            if value is None:
-                ax.axis("off")
-                if row == n_grid_rows - 1 and sample_name.startswith("test"):
-                    ax.text(0.5, 0.5, "(no output)", ha="center", va="center", color="gray", transform=ax.transAxes)
-            else:
-                # Intermediate arrangement steps use index-grid style; objects use ARC colors.
-                if 0 < row < n_grid_rows - 1 and (
-                    _is_arrangement_step(value) or _is_placement_list(value)
-                ):
-                    label = f"{sample_title}" if sample_title else ""
-                    plot_step_visual(ax, value, title=label)
-                    if not sample_title:
-                        ax.set_title("arrangement", fontsize=9, color="0.35")
-                else:
-                    plot_step_visual(ax, value, title=sample_title)
             if col == 0:
+                ax_lab = fig.add_subplot(sample_gs[row + 1, 0])
+                ax_lab.axis("off")
                 ylabel = row_labels[row]
                 if 0 < row < n_grid_rows - 1:
                     step_val = row_values[row]
                     if step_val is not None and (
                         _is_arrangement_step(step_val) or _is_placement_list(step_val)
                     ):
-                        ylabel = f"{ylabel}\n(arr.)"
-                ax.set_ylabel(ylabel, fontsize=10, rotation=0, labelpad=28, va="center")
+                        ylabel = f"{ylabel} (arr.)"
+                ax_lab.text(
+                    0.95,
+                    0.5,
+                    ylabel,
+                    ha="right",
+                    va="center",
+                    fontsize=10,
+                    transform=ax_lab.transAxes,
+                )
+
+            ax = fig.add_subplot(sample_gs[row + 1, col + 1])
+            if value is None:
+                ax.axis("off")
+                if row == n_grid_rows - 1 and sample_name.startswith("test"):
+                    ax.text(
+                        0.5,
+                        0.5,
+                        "(no output)",
+                        ha="center",
+                        va="center",
+                        color="gray",
+                        transform=ax.transAxes,
+                    )
+            else:
+                plot_step_visual(ax, value, title="")
 
     # Description
     ax_desc = fig.add_subplot(outer[3])
@@ -373,11 +475,11 @@ def render_generated_puzzle(
         text,
         ha="left",
         va="top",
-        fontsize=10,
+        fontsize=11,
         wrap=True,
         transform=ax_desc.transAxes,
         family="sans-serif",
     )
-    ax_desc.set_title("Description", loc="left", fontsize=11, fontweight="bold", pad=8)
+    ax_desc.set_title("Description", loc="left", fontsize=13, fontweight="bold", pad=4)
 
     return fig

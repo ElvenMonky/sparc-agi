@@ -2,9 +2,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
+from sparc_agi.canvas import Geometry
 from sparc_agi.features.base import Feature
-from sparc_agi.features.orientation import Orientation
-from sparc_agi.grid import Grid, apply_orientation
+from sparc_agi.features.scalars.orientation import Orientation
 from sparc_agi.transformations.base import Transformation, register_transformation
 
 
@@ -42,18 +42,23 @@ class Rotate(Transformation):
         *,
         step: int,
         feature_inputs: Sequence[Feature] | None = None,
-    ) -> Grid:
-        del step
+        feature_output: Feature | None = None,
+    ) -> Geometry:
+        del step, feature_output
         orientation, obj = inputs
         if not isinstance(orientation, int):
-            raise TypeError(f"Rotate.instantiate expects int orientation, got {type(orientation).__name__}")
-        if not isinstance(obj, list):
-            raise TypeError(f"Rotate.instantiate expects object grid, got {type(obj).__name__}")
+            raise TypeError(
+                f"Rotate.instantiate expects int orientation, got {type(orientation).__name__}"
+            )
+        if not isinstance(obj, Geometry):
+            raise TypeError(
+                f"Rotate.instantiate expects Geometry, got {type(obj).__name__}"
+            )
         if feature_inputs is not None:
             _, obj_feat = feature_inputs
             if not obj_feat.has_trait("orientation"):
                 return obj
-        return apply_orientation(obj, orientation)
+        return obj.apply_orientation(orientation)
 
     def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
         del output, step
