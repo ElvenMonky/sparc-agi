@@ -11,7 +11,7 @@ from sparc_agi.features.scalars.color import Color
 from sparc_agi.features.scalars.count import Count
 from sparc_agi.features.scalars.height import Height
 from sparc_agi.features.objects.base import Object
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 from sparc_agi.features.sequence import Sequence
 from sparc_agi.features.scalars.size import Size
 from sparc_agi.features.scalars.width import Width
@@ -26,14 +26,14 @@ class Glyph(Object):
     read-only structure (not a trait).
     """
 
-    color: Color = field(default_factory=lambda: Color(value=RangeSpec(1, 9)))
+    color: Color = field(default_factory=lambda: Color(value=Range(1, 9)))
     default_arrangement = RandomArrangement(
         size=Size(
-            width=Width(value=RangeSpec(3)),
-            height=Height(value=RangeSpec(3)),
+            width=Width(value=Range(3)),
+            height=Height(value=Range(3)),
         ),
         sequence=Sequence(cycle=[0]),
-        count=Count(value=RangeSpec(2, 8)),
+        count=Count(value=Range(2, 8)),
     )
 
     def describe(self) -> str:

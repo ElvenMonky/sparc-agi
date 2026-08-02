@@ -90,26 +90,18 @@
     "cache": {
       "a": {
         "filter": {
-          "color": 1,
-          "kind": "glyph"
+          "index": 1,
+          "criteria": ["color", "kind"]
         }
       },
       "b": {
-        "filter": {}
+        "filter": {
+          "index": 0
+        }
       },
       "c": {
-        "object.glyph": {
-          "color": 3
-        }
-      },
-      "d": {
-        "object.glyph": {
-          "color": 4
-        }
-      },
-      "e": {
-        "object.glyph": {
-          "color": 5
+        "mapping.color": {
+          "color": [3, 5]
         }
       }
     },
@@ -138,7 +130,7 @@
           },
           {
             "object.glyph": {
-              "source": ["c", "d", "e"],
+              "mapping": "c",
               "color": 1
             }
           }
@@ -167,7 +159,7 @@
         ]
       },
       {
-        "ExtractSourceColor": [
+        "ApplyMapping": [
           1
         ]
       },

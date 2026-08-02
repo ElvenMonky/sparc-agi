@@ -2,7 +2,7 @@ import random
 from dataclasses import dataclass
 
 from sparc_agi.features.base import FeatureSpec
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 
 @dataclass(frozen=True)
 class Scalar:
@@ -10,7 +10,7 @@ class Scalar:
 
 @dataclass
 class ScalarSpec(FeatureSpec):
-    value: RangeSpec
+    value: Range
 
     def describe(self) -> str:
         return f"{self.__feature_name__} {self.value.describe()}"

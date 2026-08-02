@@ -1,15 +1,15 @@
-"""Scalar features (``color``, ``count``, ``width``, …) and helpers (``RangeSpec``, ``Size``).
+"""Scalar features (``color``, ``count``, ``width``, …) and helpers (``Range``, ``Size``).
 
 Call :func:`load_scalar_features` from :mod:`sparc_agi.features` after ``base``
-is imported so ``RangeSpec`` can load without a circular import.
+is imported so ``Range`` can load without a circular import.
 """
 
 import importlib
 
 from sparc_agi.features.scalars.base import Scalar, ScalarSpec
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 
-__all__ = ["RangeSpec", "Scalar", "ScalarSpec", "load_scalar_features"]
+__all__ = ["Range", "Scalar", "ScalarSpec", "load_scalar_features"]
 
 def load_scalar_features() -> None:
     """Import scalar modules so ``@register_feature`` / ``Size`` are available."""

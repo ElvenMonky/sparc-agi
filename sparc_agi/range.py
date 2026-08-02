@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any
 
 @dataclass(frozen=True)
-class RangeSpec:
+class Range:
     lo: int
     hi: int | None = None
     step: int = 1
@@ -13,8 +13,8 @@ class RangeSpec:
             object.__setattr__(self, "hi", self.lo)
 
     @classmethod
-    def from_raw(cls, raw: Any) -> RangeSpec:
-        if isinstance(raw, RangeSpec):
+    def from_raw(cls, raw: Any) -> Range:
+        if isinstance(raw, Range):
             return raw
         if isinstance(raw, bool) or not isinstance(raw, (int, list)):
             raise ValueError(f"range must be an int or list, got {raw!r}")

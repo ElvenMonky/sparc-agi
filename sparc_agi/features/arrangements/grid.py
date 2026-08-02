@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.base import register_feature
 from sparc_agi.features.scalars.orientation import Orientation, transform_xy
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 
 def _scan_phrase(direction: int) -> str | None:
     """How identity row-major fill appears after orientation ``direction``.
@@ -44,7 +44,7 @@ class GridArrangement(Arrangement):
     sequence slots removed. ``count`` (when set) keeps a prefix of those slots.
     """
 
-    orientation: Orientation = field(default_factory=lambda: Orientation(value=RangeSpec(0)))
+    orientation: Orientation = field(default_factory=lambda: Orientation(value=Range(0)))
 
     @staticmethod
     def scan_cells(width: int, height: int, direction: int) -> list[tuple[int, int]]:

@@ -9,7 +9,7 @@ from sparc_agi.features.base import Feature, register_feature
 from sparc_agi.features.objects.base import Object
 from sparc_agi.features.scalars.color import Color
 from sparc_agi.features.scalars.count import Count
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 from sparc_agi.features.scalars.size import Size
 from sparc_agi.features.sequence import Sequence
 
@@ -23,9 +23,9 @@ class Tree(Object):
     a tight bbox — so size never appears in descriptions.
     """
 
-    color: Color = field(default_factory=lambda: Color(value=RangeSpec(1, 9)))
+    color: Color = field(default_factory=lambda: Color(value=Range(1, 9)))
     size: Size | None = None
-    count: Count = field(default_factory=lambda: Count(value=RangeSpec(15, 30)))
+    count: Count = field(default_factory=lambda: Count(value=Range(15, 30)))
 
     def kind_noun(self) -> str:
         return "tree structure"

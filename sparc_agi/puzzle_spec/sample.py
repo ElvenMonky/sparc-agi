@@ -1,12 +1,12 @@
 from dataclasses import dataclass, field
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 from sparc_agi.features.base import Feature
 from sparc_agi.features.object import Object
 
 @dataclass
 class SampleSpec:
-    train: RangeSpec = field(default_factory=lambda: RangeSpec(2, 5))
-    test: RangeSpec = field(default_factory=lambda: RangeSpec(1, 3))
+    train: Range = field(default_factory=lambda: Range(2, 5))
+    test: Range = field(default_factory=lambda: Range(1, 3))
 
 @dataclass
 class Sample:

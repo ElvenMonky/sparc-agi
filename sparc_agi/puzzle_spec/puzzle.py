@@ -7,7 +7,7 @@ from sparc_agi.features import Feature, FeatureSpec
 from sparc_agi.geometry import Geometry
 from sparc_agi.grid import to_arc_grid
 from sparc_agi.instance_ctx import force_source_key, use_instance_cache
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 from sparc_agi.sample import Sample, SampleSpec
 from sparc_agi.transformations import Transformation, WireRef
 from sparc_agi.types import Palette

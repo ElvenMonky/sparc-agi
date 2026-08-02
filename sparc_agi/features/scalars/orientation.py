@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 from sparc_agi.features.base import register_feature
 from sparc_agi.features.scalars.base import ScalarSpec
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 
 # Dihedral ops for d // 2 (same order as the input-rendering PoC), plus optional +45° when d % 2.
 _TRANSFORMS = (
@@ -47,7 +47,7 @@ class Orientation(ScalarSpec):
     def applied_to(self, previous: Orientation) -> Orientation:
         """Compose this orientation onto ``previous`` (additive on range bounds)."""
         base, delta = previous.value, self.value
-        return Orientation(value=RangeSpec(base.lo + delta.lo, base.hi + delta.hi, base.step))
+        return Orientation(value=Range(base.lo + delta.lo, base.hi + delta.hi, base.step))
 
     def describe(self) -> str:
         """Geometric phrase for objects (e.g. ``flipped horizontally``)."""

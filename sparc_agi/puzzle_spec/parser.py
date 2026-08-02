@@ -26,13 +26,13 @@ from typing import Any, Union, get_args, get_origin, get_type_hints
 import cattrs
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
-from sparc_agi.features import FEATURE_REGISTRY, Feature, Size, feature_family
+from sparc_agi.features import FEATURE_REGISTRY, FeatureSpec, Size, feature_family
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.scalars.base import ScalarSpec
 from sparc_agi.features.scalars.height import Height
 from sparc_agi.features.objects.base import Object
-from sparc_agi.range import RangeSpec
-from sparc_agi.features.spacing import GapSpec, MarginSpec
+from sparc_agi.range import Range
+from sparc_agi.features.spacing import Gap, Margin
 from sparc_agi.features.scalars.width import Width
 from sparc_agi.puzzle import Puzzle, PuzzleSource, SpecError
 from sparc_agi.transformations import TRANSFORMATION_REGISTRY, Transformation, WireRef
@@ -46,11 +46,11 @@ def _is_plain_dataclass(t: Any) -> bool:
     return (
         is_dataclass(t)
         and isinstance(t, type)
-        and t not in (Size, RangeSpec, GapSpec, MarginSpec)
-        and not issubclass(t, (Feature, Transformation))
+        and t not in (Size, Range, Gap, Margin)
+        and not issubclass(t, (FeatureSpec, Transformation))
     )
 
-# Plain nested dataclasses on demand. Size / RangeSpec / Features have dedicated hooks.
+# Plain nested dataclasses on demand. Size / Range / Features have dedicated hooks.
 converter.register_structure_hook_factory(
     _is_plain_dataclass,
     lambda t: make_dict_structure_fn(t, converter),
@@ -60,51 +60,51 @@ converter.register_unstructure_hook_factory(
     lambda t: make_dict_unstructure_fn(t, converter),
 )
 
-def structure_range(obj: Any, _type: type) -> RangeSpec:
-    return RangeSpec.from_raw(obj)
+def structure_range(obj: Any, _type: type) -> Range:
+    return Range.from_raw(obj)
 
-def unstructure_range(obj: RangeSpec) -> int | list[int]:
+def unstructure_range(obj: Range) -> int | list[int]:
     return obj.to_raw()
 
-converter.register_structure_hook(RangeSpec, structure_range)
-converter.register_unstructure_hook(RangeSpec, unstructure_range)
+converter.register_structure_hook(Range, structure_range)
+converter.register_unstructure_hook(Range, unstructure_range)
 
-def structure_gap_spec(obj: Any, _type: type) -> GapSpec:
-    return GapSpec.from_raw(obj)
+def structure_gap_spec(obj: Any, _type: type) -> Gap:
+    return Gap.from_raw(obj)
 
-def unstructure_gap_spec(obj: GapSpec) -> int | list[int] | dict[str, int | list[int]]:
+def unstructure_gap_spec(obj: Gap) -> int | list[int] | dict[str, int | list[int]]:
     return obj.to_raw()
 
-def structure_margin_spec(obj: Any, _type: type) -> MarginSpec:
-    return MarginSpec.from_raw(obj)
+def structure_margin_spec(obj: Any, _type: type) -> Margin:
+    return Margin.from_raw(obj)
 
 def unstructure_margin_spec(
-    obj: MarginSpec,
+    obj: Margin,
 ) -> int | list[int] | dict[str, int | list[int]]:
     return obj.to_raw()
 
-converter.register_structure_hook(GapSpec, structure_gap_spec)
-converter.register_unstructure_hook(GapSpec, unstructure_gap_spec)
-converter.register_structure_hook(MarginSpec, structure_margin_spec)
-converter.register_unstructure_hook(MarginSpec, unstructure_margin_spec)
+converter.register_structure_hook(Gap, structure_gap_spec)
+converter.register_unstructure_hook(Gap, unstructure_gap_spec)
+converter.register_structure_hook(Margin, structure_margin_spec)
+converter.register_unstructure_hook(Margin, unstructure_margin_spec)
 
-def structure_scalar_feature(obj: Any, cls: type[Feature]) -> Feature:
-    """Structure a concrete scalar feature from a bare RangeSpec payload (or instance)."""
+def structure_scalar_feature(obj: Any, cls: type[FeatureSpec]) -> FeatureSpec:
+    """Structure a concrete scalar feature from a bare Range payload (or instance)."""
     if isinstance(obj, cls):
         return obj
-    return cls(value=converter.structure(obj, RangeSpec))
+    return cls(value=converter.structure(obj, Range))
 
 converter.register_structure_hook_func(_is_scalar_feature_type, structure_scalar_feature)
 
 def _is_composite_feature_type(t: Any) -> bool:
     return (
         isinstance(t, type)
-        and issubclass(t, Feature)
-        and t is not Feature
+        and issubclass(t, FeatureSpec)
+        and t is not FeatureSpec
         and not issubclass(t, ScalarSpec)
     )
 
-def structure_composite_feature(obj: Any, cls: type[Feature]) -> Feature:
+def structure_composite_feature(obj: Any, cls: type[FeatureSpec]) -> FeatureSpec:
     """Structure a concrete composite feature from its bare payload object."""
     if isinstance(obj, cls):
         return obj
@@ -112,7 +112,7 @@ def structure_composite_feature(obj: Any, cls: type[Feature]) -> Feature:
 
 converter.register_structure_hook_func(_is_composite_feature_type, structure_composite_feature)
 
-def _structure_nested_scalar(payload: Any, cls: type[Feature]) -> Feature:
+def _structure_nested_scalar(payload: Any, cls: type[FeatureSpec]) -> FeatureSpec:
     """Structure a scalar feature nested under a field (bare payload, not tagged)."""
     return structure_scalar_feature(payload, cls)
 
@@ -128,7 +128,7 @@ def structure_size(obj: Any, _type: type) -> Size:
         raise ValueError(f"size requires 'width' and 'height', got {obj!r}") from exc
 
 def unstructure_size(obj: Size) -> dict[str, int | list[int]]:
-    # Nested form keeps bare range payloads; tagged form is only for Feature slots.
+    # Nested form keeps bare range payloads; tagged form is only for FeatureSpec slots.
     return {
         "width": converter.unstructure(obj.width.value),
         "height": converter.unstructure(obj.height.value),
@@ -145,12 +145,12 @@ def _require_single_tag(obj: Any, kind: str) -> tuple[str, Any]:
         raise ValueError(f"{kind} tag must be a string, got {tag!r}")
     return tag, payload
 
-def _normalize_composite_payload(payload: dict[str, Any], cls: type[Feature]) -> dict[str, Any]:
+def _normalize_composite_payload(payload: dict[str, Any], cls: type[FeatureSpec]) -> dict[str, Any]:
     """Map flat child tags onto field names.
 
     When a payload key is a registered feature tag whose family matches a field
     name (e.g. ``object.sprite`` → field ``object``), rewrite it to a tagged
-    nested value so polymorphic ``Feature`` slots keep their kind.
+    nested value so polymorphic ``FeatureSpec`` slots keep their kind.
     """
     hints = get_type_hints(cls)
     field_names = set(cls.trait_names())
@@ -163,7 +163,7 @@ def _normalize_composite_payload(payload: dict[str, Any], cls: type[Feature]) ->
             continue
         child_payload = out.pop(key)
         ann = hints.get(family)
-        if ann is Feature:
+        if ann is FeatureSpec:
             out[family] = {key: child_payload}
         else:
             expected = getattr(ann, "__feature_name__", None)
@@ -175,18 +175,18 @@ def _structure_concrete(payload: Any, cls: type) -> Any:
     if (
         isinstance(payload, dict)
         and isinstance(cls, type)
-        and issubclass(cls, Feature)
+        and issubclass(cls, FeatureSpec)
         and not issubclass(cls, ScalarSpec)
     ):
         payload = _normalize_composite_payload(payload, cls)
     kwargs: dict[str, Any] = {}
-    if isinstance(cls, type) and issubclass(cls, Feature):
+    if isinstance(cls, type) and issubclass(cls, FeatureSpec):
         # Runtime-only fields. ``source`` is *not* omitted: bible may set cache keys.
         kwargs["alias"] = override(omit=True)
         kwargs["geometry_index"] = override(omit=True)
     return make_dict_structure_fn(cls, converter, **kwargs)(payload, cls)
 
-def structure_feature(obj: Any, _type: type) -> Feature:
+def structure_feature(obj: Any, _type: type) -> FeatureSpec:
     tag, payload = _require_single_tag(obj, "feature")
     try:
         cls = FEATURE_REGISTRY[tag]
@@ -198,7 +198,7 @@ def structure_feature(obj: Any, _type: type) -> Feature:
         return structure_scalar_feature(payload, cls)
     return _structure_concrete(payload, cls)
 
-def _unstructure_composite_payload(obj: Feature) -> dict[str, Any]:
+def _unstructure_composite_payload(obj: FeatureSpec) -> dict[str, Any]:
     """Unstructure composite feature fields; nested scalars stay bare (untagged)."""
     cls = type(obj)
     hints = get_type_hints(cls)
@@ -216,14 +216,14 @@ def _unstructure_composite_payload(obj: Feature) -> dict[str, Any]:
             continue
         if isinstance(val, ScalarSpec):
             payload[f.name] = converter.unstructure(val.value)
-        elif isinstance(val, Feature):
+        elif isinstance(val, FeatureSpec):
             tagged = unstructure_feature(val)
             ((tag, inner),) = tagged.items()
             # Field name matches tag → bare payload; polymorphic slot → flat kind tag.
             ann = hints.get(f.name)
             if tag == f.name:
                 payload[f.name] = inner
-            elif ann in (Feature, Arrangement, Object):
+            elif ann in (FeatureSpec, Arrangement, Object):
                 payload[tag] = inner
             else:
                 payload[f.name] = tagged
@@ -237,7 +237,7 @@ def _unstructure_composite_payload(obj: Feature) -> dict[str, Any]:
         payload["source"] = list(src)
     return payload
 
-def unstructure_feature(obj: Feature) -> dict[str, Any]:
+def unstructure_feature(obj: FeatureSpec) -> dict[str, Any]:
     cls = type(obj)
     if isinstance(obj, ScalarSpec):
         payload: Any = converter.unstructure(obj.value)
@@ -292,12 +292,12 @@ def unstructure_transformation(obj: Transformation) -> dict[str, Any]:
     }
 
 # Exact base types only — concrete subclasses structure via _structure_concrete.
-converter.register_structure_hook_func(lambda t: t is Feature, structure_feature)
+converter.register_structure_hook_func(lambda t: t is FeatureSpec, structure_feature)
 converter.register_structure_hook_func(lambda t: t is Transformation, structure_transformation)
 
 def structure_arrangement(obj: Any, _type: type) -> Arrangement:
     """Tagged arrangement union (``arrangement.grid``, ``arrangement.free``, …)."""
-    feat = structure_feature(obj, Feature)
+    feat = structure_feature(obj, FeatureSpec)
     if type(feat).__feature_family__ != "arrangement":
         raise ValueError(
             f"expected an arrangement feature, got {type(feat).__feature_name__}"
@@ -307,7 +307,7 @@ def structure_arrangement(obj: Any, _type: type) -> Arrangement:
 
 def structure_object(obj: Any, _type: type) -> Object:
     """Tagged object union (``object.sprite``, ``object.group``, …)."""
-    feat = structure_feature(obj, Feature)
+    feat = structure_feature(obj, FeatureSpec)
     if type(feat).__feature_family__ != "object":
         raise ValueError(f"expected an object feature, got {type(feat).__feature_name__}")
     assert isinstance(feat, Object)
@@ -326,7 +326,7 @@ converter.register_structure_hook_func(lambda t: t is Object, structure_object)
 converter.register_structure_hook_func(_is_object_list, structure_object_list)
 
 converter.register_unstructure_hook_func(
-    lambda cls: isinstance(cls, type) and issubclass(cls, Feature),
+    lambda cls: isinstance(cls, type) and issubclass(cls, FeatureSpec),
     unstructure_feature,
 )
 converter.register_unstructure_hook_func(

@@ -16,21 +16,21 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from sparc_agi.features.base import FeatureSpec, register_feature
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 
 @dataclass(frozen=True)
-class GapSpec:
+class Gap:
     """Horizontal / vertical gap between neighboring items or cells."""
 
-    x: RangeSpec = field(default_factory=lambda: RangeSpec(0))
-    y: RangeSpec = field(default_factory=lambda: RangeSpec(0))
+    x: Range = field(default_factory=lambda: Range(0))
+    y: Range = field(default_factory=lambda: Range(0))
 
     @classmethod
-    def from_raw(cls, raw: Any) -> GapSpec:
-        if isinstance(raw, GapSpec):
+    def from_raw(cls, raw: Any) -> Gap:
+        if isinstance(raw, Gap):
             return raw
-        if isinstance(raw, (int, list)) or isinstance(raw, RangeSpec):
-            r = RangeSpec.from_raw(raw)
+        if isinstance(raw, (int, list)) or isinstance(raw, Range):
+            r = Range.from_raw(raw)
             return cls(x=r, y=r)
         if isinstance(raw, dict):
             if not raw:
@@ -39,8 +39,8 @@ class GapSpec:
             if unknown:
                 raise ValueError(f"gap object has unknown keys {unknown}")
             return cls(
-                x=RangeSpec.from_raw(raw["x"] if "x" in raw else 0),
-                y=RangeSpec.from_raw(raw["y"] if "y" in raw else 0),
+                x=Range.from_raw(raw["x"] if "x" in raw else 0),
+                y=Range.from_raw(raw["y"] if "y" in raw else 0),
             )
         raise ValueError(f"gap must be a range or {{x, y}} object, got {raw!r}")
 
@@ -58,20 +58,20 @@ class GapSpec:
         return (self.x.sample(rng), self.y.sample(rng))
 
 @dataclass(frozen=True)
-class MarginSpec:
+class Margin:
     """Per-side inset from the parent bbox (left/right/top/bottom)."""
 
-    left: RangeSpec = field(default_factory=lambda: RangeSpec(0))
-    right: RangeSpec = field(default_factory=lambda: RangeSpec(0))
-    top: RangeSpec = field(default_factory=lambda: RangeSpec(0))
-    bottom: RangeSpec = field(default_factory=lambda: RangeSpec(0))
+    left: Range = field(default_factory=lambda: Range(0))
+    right: Range = field(default_factory=lambda: Range(0))
+    top: Range = field(default_factory=lambda: Range(0))
+    bottom: Range = field(default_factory=lambda: Range(0))
 
     @classmethod
-    def from_raw(cls, raw: Any) -> MarginSpec:
-        if isinstance(raw, MarginSpec):
+    def from_raw(cls, raw: Any) -> Margin:
+        if isinstance(raw, Margin):
             return raw
-        if isinstance(raw, (int, list)) or isinstance(raw, RangeSpec):
-            r = RangeSpec.from_raw(raw)
+        if isinstance(raw, (int, list)) or isinstance(raw, Range):
+            r = Range.from_raw(raw)
             return cls(left=r, right=r, top=r, bottom=r)
         if isinstance(raw, dict):
             if not raw:
@@ -81,13 +81,13 @@ class MarginSpec:
             unknown = set(raw) - sides - axes
             if unknown:
                 raise ValueError(f"margin object has unknown keys {unknown}")
-            x = RangeSpec.from_raw(raw["x"] if "x" in raw else 0)
-            y = RangeSpec.from_raw(raw["y"] if "y" in raw else 0)
+            x = Range.from_raw(raw["x"] if "x" in raw else 0)
+            y = Range.from_raw(raw["y"] if "y" in raw else 0)
             return cls(
-                left=RangeSpec.from_raw(raw["left"]) if "left" in raw else x,
-                right=RangeSpec.from_raw(raw["right"]) if "right" in raw else x,
-                top=RangeSpec.from_raw(raw["top"]) if "top" in raw else y,
-                bottom=RangeSpec.from_raw(raw["bottom"]) if "bottom" in raw else y,
+                left=Range.from_raw(raw["left"]) if "left" in raw else x,
+                right=Range.from_raw(raw["right"]) if "right" in raw else x,
+                top=Range.from_raw(raw["top"]) if "top" in raw else y,
+                bottom=Range.from_raw(raw["bottom"]) if "bottom" in raw else y,
             )
         raise ValueError(
             f"margin must be a range, {{x, y}}, or {{left, right, top, bottom}}, got {raw!r}"
@@ -100,8 +100,8 @@ class MarginSpec:
             return {"x": self.left.to_raw(), "y": self.top.to_raw()}
         out: dict[str, int | list[int]] = {}
         for name in ("left", "right", "top", "bottom"):
-            val: RangeSpec = getattr(self, name)
-            if val != RangeSpec(0):
+            val: Range = getattr(self, name)
+            if val != Range(0):
                 out[name] = val.to_raw()
         return out or 0
 
@@ -113,7 +113,7 @@ class MarginSpec:
         parts = [
             f"{name} {getattr(self, name).describe()}"
             for name in ("left", "right", "top", "bottom")
-            if getattr(self, name) != RangeSpec(0)
+            if getattr(self, name) != Range(0)
         ]
         return ", ".join(parts) if parts else "0"
 
@@ -138,8 +138,8 @@ class Spacing:
 @register_feature("spacing")
 @dataclass
 class SpacingSpec(FeatureSpec):
-    margin: MarginSpec = field(default_factory=MarginSpec)
-    gap: GapSpec = field(default_factory=GapSpec)
+    margin: Margin = field(default_factory=Margin)
+    gap: Gap = field(default_factory=Gap)
 
     def describe(self) -> str:
         parts: list[str] = []

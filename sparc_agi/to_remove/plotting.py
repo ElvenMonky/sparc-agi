@@ -10,7 +10,7 @@ from matplotlib.figure import Figure
 
 from sparc_agi.features.base import Feature
 from sparc_agi.features.scalars.orientation import Orientation
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 from sparc_agi.geometry import Geometry
 from sparc_agi.palette import ARC_COLORS
 
@@ -164,7 +164,7 @@ def plot_index_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> No
         ax.set_title(title, fontsize=8, pad=1)
 
 def _orientation_short_label(direction: int) -> str:
-    phrase = Orientation(value=RangeSpec(direction)).describe()
+    phrase = Orientation(value=Range(direction)).describe()
     if not phrase:
         return "identity"
     if phrase == "flipped horizontally":

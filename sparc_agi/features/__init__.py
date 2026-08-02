@@ -11,7 +11,7 @@ from sparc_agi.features.base import (
     register_feature,
 )
 from sparc_agi.features.scalars import Scalar, ScalarSpec, load_scalar_features
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 
 load_scalar_features()
 
@@ -26,7 +26,7 @@ for _, module_name, _ in pkgutil.iter_modules([str(Path(__file__).resolve().pare
 __all__ = [
     "FEATURE_REGISTRY",
     "Feature",
-    "RangeSpec",
+    "Range",
     "Scalar",
     "ScalarSpec",
     "Sequence",

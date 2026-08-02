@@ -4,7 +4,7 @@ from typing import Any
 from sparc_agi.geometry import Geometry
 from sparc_agi.features.base import Feature
 from sparc_agi.features.scalars.color import Color
-from sparc_agi.range import RangeSpec
+from sparc_agi.range import Range
 from sparc_agi.transformations.base import Transformation, register_transformation
 
 @register_transformation("ExtractSourceColor")
@@ -25,7 +25,7 @@ class ExtractSourceColor(Transformation):
             raise TypeError(
                 f"ExtractSourceColor expects an object feature, got {type(obj).__feature_name__}"
             )
-        out = Color(value=RangeSpec(0, 9))
+        out = Color(value=Range(0, 9))
         out.alias = f"hidden color from step {step}"
         return out
 
