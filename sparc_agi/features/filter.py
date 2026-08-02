@@ -8,7 +8,6 @@ from sparc_agi.features.base import Feature, register_feature
 from sparc_agi.features.scalars.color import Color
 from sparc_agi.features.objects.base import Object
 
-
 @register_feature("filter")
 @dataclass
 class Filter(Feature):

@@ -1,67 +1,44 @@
 """Feature registry and shared nested value types.
 
-Feature specs in the source are single-key tagged objects::
+Feature specs are single-key tagged objects::
 
-    { "<feature.name>": <payload> }
+    { "<tag>": <payload> }
 
-The tag is ``<family>`` or ``<family>.<kind>``. The family (part before the
-dot) is what transformations match on; kinds are interchangeable in a slot
-that expects that family (e.g. ``object.sprite`` satisfies an ``object`` slot).
+The tag is ``<family>`` or ``<family>.<kind>``.
+The family (part before the dot) is what transformations match on;
+Kinds are interchangeable in a slot that expects that family (e.g. ``object.sprite`` satisfies an ``object`` slot).
 
-**Traits.** Every dataclass field on a feature (except ``source`` / ``alias`` /
-``geometry_index``) is an editable trait. ``source`` is inheritance, not a
-filterable trait. Pipeline order is cache → input → transformations; ``source``
-may refer to any preceding stage — bible ``list[str]`` / ``str`` cache keys, or
-a parent :class:`Feature` (cache entry, puzzle input, or earlier step output)
-after :meth:`derived`.
+Register a new feature with ``@register_feature("<family>.<kind>")``.
 
-Register a new feature with ``@register_feature("feature.name")``. Scalar
-features subclass :class:`Scalar` (single ``value: Range`` field); composites
-subclass :class:`Feature` directly.
+**Traits.** Every dataclass field on a feature (except ``source`` / ``alias``) is an editable trait.
+``source`` is not a trait. Pipeline order is cache → input → transformations; ``source`` may refer to any preceding stage.
 """
 
-import random
-from collections.abc import Iterator
 from dataclasses import MISSING, dataclass, field, fields, replace
 from typing import Any, Callable, ClassVar, Self, TypeVar
-
-from sparc_agi.features.scalars.range import Range
 
 F = TypeVar("F", bound="Feature")
 
 FEATURE_REGISTRY: dict[str, type[Feature]] = {}
 
-# Not filterable traits; ``source`` is still loaded from the bible when present.
-_PROVENANCE_FIELDS: frozenset[str] = frozenset({"source", "alias", "geometry_index"})
-
-
-def feature_family(name: str) -> str:
-    """Return the feature family for a registry tag (``arrangement.grid`` → ``arrangement``)."""
-    return name.split(".", 1)[0]
-
+_BASE_FIELDS: frozenset[str] = frozenset({"source", "alias"})
 
 @dataclass
-class Feature:
+class FeatureSpec:
     """Base class for all registered feature specs."""
 
     __feature_name__: ClassVar[str]
     __feature_family__: ClassVar[str]
-    # Extra field names that are not traits (provenance is always excluded).
     __non_traits__: ClassVar[frozenset[str]] = frozenset()
 
-    # Inheritance from any preceding stage (cache → input → transforms):
-    # bible cache key(s) ``str`` / ``list[str]``, or a parent Feature after
-    # ``derived()`` (that parent may itself be cache, input, or a prior step).
+    # Inheritance from any preceding stage (cache → input → transforms)
     source: Any = field(default=None, kw_only=True, compare=False, repr=False)
     # Referential name for descriptions ("input sprite", "rotated sprite from step 1").
     alias: str | None = field(default=None, kw_only=True, compare=False, repr=False)
-    # Child index in a parent Geometry.geometries list (set by PickObject, etc.).
-    geometry_index: int | None = field(default=None, kw_only=True, compare=False, repr=False)
 
     @classmethod
     def trait_names(cls) -> frozenset[str]:
-        """Editable trait field names for this feature kind."""
-        excluded = _PROVENANCE_FIELDS | cls.__non_traits__
+        excluded = _BASE_FIELDS | cls.__non_traits__
         return frozenset(f.name for f in fields(cls) if f.name not in excluded)
 
     def has_trait(self, name: str) -> bool:
@@ -80,15 +57,22 @@ class Feature:
             changes["source"] = self
         return replace(self, alias=None, **changes)
 
-    def iter_source(self) -> Iterator[Feature]:
-        """Walk ``self``, then each Feature-valued ``source``, until cache keys / None."""
-        cur: Feature | None = self
-        seen: set[int] = set()
-        while isinstance(cur, Feature) and id(cur) not in seen:
-            yield cur
-            seen.add(id(cur))
-            nxt = cur.source
-            cur = nxt if isinstance(nxt, Feature) else None
+    def _iter_features(self):
+        yield self
+        for f in fields(type(self)):
+            if f.name in ("source", "alias", "geometry_index"):
+                continue
+            val = getattr(self, f.name)
+            if isinstance(val, Feature):
+                yield from _iter_features(val)
+            elif isinstance(val, list):
+                for item in val:
+                    if isinstance(item, Feature):
+                        yield from _iter_features(item)
+            elif isinstance(val, dict):
+                for item in val.values():
+                    if isinstance(item, Feature):
+                        yield from _iter_features(item)
 
     def refer(self) -> str:
         """Name used when this feature is referenced from another description."""
@@ -115,20 +99,6 @@ class Feature:
         """Sample a concrete value for this feature."""
         raise NotImplementedError(f"{type(self).__name__}.instantiate() is not implemented")
 
-
-@dataclass
-class Scalar(Feature):
-    """Range-valued scalar feature (width, color, orientation, …)."""
-
-    value: Range
-
-    def describe(self) -> str:
-        return f"{self.__feature_name__} {self.value.describe()}"
-
-    def instantiate(self, rng: random.Random) -> int:
-        return self.value.sample(rng)
-
-
 def register_feature(name: str) -> Callable[[type[F]], type[F]]:
     """Register a Feature subclass under a source tag name."""
 
@@ -137,12 +107,8 @@ def register_feature(name: str) -> Callable[[type[F]], type[F]]:
             raise TypeError(f"{cls.__name__} must subclass Feature")
         if name in FEATURE_REGISTRY:
             raise ValueError(f"feature {name!r} already registered as {FEATURE_REGISTRY[name].__name__}")
-        if issubclass(cls, Scalar):
-            value_fields = [f for f in fields(cls) if f.name not in _PROVENANCE_FIELDS]
-            if len(value_fields) != 1 or value_fields[0].name != "value":
-                raise TypeError(f"scalar feature {cls.__name__} must declare a single 'value' field")
         cls.__feature_name__ = name
-        cls.__feature_family__ = feature_family(name)
+        cls.__feature_family__ = name.split(".", 1)[0]
         FEATURE_REGISTRY[name] = cls
         return cls
 

@@ -3,11 +3,10 @@
 import random
 from dataclasses import dataclass, field
 
-from sparc_agi.canvas import Geometry
+from sparc_agi.geometry import Geometry
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.base import register_feature
 from sparc_agi.features.objects.base import Object
-
 
 def join_copy_refs(refs: list[str]) -> str:
     """Join object refs as ``copies of A and B`` / ``copies of A, B, and C``."""
@@ -20,12 +19,10 @@ def join_copy_refs(refs: list[str]) -> str:
     *rest, last = refs
     return "copies of " + ", ".join(rest) + f", and {last}"
 
-
 def _count_phrase(arrangement: Arrangement) -> str | None:
     if arrangement.count is None:
         return None
     return arrangement.count.value.describe()
-
 
 @register_feature("object.group")
 @dataclass

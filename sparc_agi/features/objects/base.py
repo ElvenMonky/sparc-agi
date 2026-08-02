@@ -3,10 +3,9 @@
 import random
 from dataclasses import dataclass
 
-from sparc_agi.canvas import Geometry
+from sparc_agi.geometry import Geometry
 from sparc_agi.features.base import Feature
 from sparc_agi.instance_ctx import get_forced_source_key, get_instance_cache
-
 
 @dataclass
 class Object(Feature):

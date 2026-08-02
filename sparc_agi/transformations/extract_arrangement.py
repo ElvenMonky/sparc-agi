@@ -1,13 +1,11 @@
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sparc_agi.canvas import Geometry
+from sparc_agi.geometry import Geometry
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.base import Feature
 from sparc_agi.grid import Placement
 from sparc_agi.transformations.base import Transformation, register_transformation
-
 
 def _placements_from_geometry(geom: Geometry) -> list[Placement]:
     """Occupied positive cells as pool-index-0 placements (local to geom)."""
@@ -16,7 +14,6 @@ def _placements_from_geometry(geom: Geometry) -> list[Placement]:
         if c is not None and c > 0:
             out.append(((x, y), 0))
     return out
-
 
 @register_transformation("ExtractArrangement")
 @dataclass
@@ -30,7 +27,7 @@ class ExtractArrangement(Transformation):
     input_features = ("object",)
     output_feature = "arrangement"
 
-    def apply(self, inputs: Sequence[Feature], *, step: int, **_: object) -> Feature:
+    def apply(self, inputs: list[Feature], *, step: int, **_: object) -> Feature:
         (obj,) = inputs
         if type(obj).__feature_family__ != "object":
             raise TypeError(
@@ -50,10 +47,10 @@ class ExtractArrangement(Transformation):
 
     def instantiate(
         self,
-        inputs: Sequence[Any],
+        inputs: list[Any],
         *,
         step: int,
-        feature_inputs: Sequence[Feature] | None = None,
+        feature_inputs: list[Feature] | None = None,
         feature_output: Feature | None = None,
     ) -> list[Placement]:
         del step, feature_inputs, feature_output
@@ -64,7 +61,7 @@ class ExtractArrangement(Transformation):
             )
         return _placements_from_geometry(obj)
 
-    def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
+    def describe(self, inputs: list[Feature], output: Feature, *, step: int) -> str:
         del output, step
         (obj,) = inputs
         return f"Extract arrangement from {obj.refer()}."

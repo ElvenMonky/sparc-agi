@@ -1,18 +1,9 @@
-"""Geometry trees for object instances (adapted from input-rendering PoC).
-
-An object instance is a :class:`Geometry`: optional own vertices/color, plus nested
-child geometries at local ``(x, y)`` with optional ``dir``. Sized containers
-(e.g. free-arranged groups) set ``width`` / ``height``; :meth:`to_grid` rasterizes
-for ARC emit / plotting only.
-"""
-
 from dataclasses import dataclass, field, replace
 from typing import Optional
 
 Points = list[tuple[int, int]]
 ColoredPoints = list[tuple[int, int, Optional[int]]]
 Grid = list[list[int]]
-
 
 def _point_in_polygon(px: int, py: int, vertices: Points) -> bool:
     inside = False
@@ -24,7 +15,6 @@ def _point_in_polygon(px: int, py: int, vertices: Points) -> bool:
             if px < x_edge:
                 inside = not inside
     return inside
-
 
 def _rotate45(x: int, y: int) -> tuple[int, int]:
     flip = y < 0 or (y == 0 and x < 0)
@@ -40,7 +30,6 @@ def _rotate45(x: int, y: int) -> tuple[int, int]:
     rx = m[0][0] * x + m[0][1] * y
     ry = m[1][0] * x + m[1][1] * y
     return (-rx, -ry) if flip else (rx, ry)
-
 
 @dataclass
 class Geometry:
@@ -320,10 +309,8 @@ class Geometry:
         out.geometries = geoms
         return out
 
-
 def point_geometry(color: int, *, x: int = 0, y: int = 0, slot: int | None = None) -> Geometry:
     return Geometry(x=x, y=y, color=color, vertices=[(0, 0)], slot=slot)
-
 
 def geometry_occupancy(geom: Geometry) -> tuple[tuple[int, ...], ...]:
     """Translation-normalized binary mask of positive cells (for arrangement→color maps)."""

@@ -1,13 +1,11 @@
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sparc_agi.canvas import Geometry
+from sparc_agi.geometry import Geometry
 from sparc_agi.features.base import Feature
 from sparc_agi.features.objects.group import Group, join_copy_refs
 from sparc_agi.grid import Placement
 from sparc_agi.transformations.base import Transformation, register_transformation
-
 
 @register_transformation("ArrangeObjects")
 @dataclass
@@ -23,7 +21,7 @@ class ArrangeObjects(Transformation):
     input_variadic = True
     output_feature = "object"
 
-    def apply(self, inputs: Sequence[Feature], *, step: int, **_: object) -> Feature:
+    def apply(self, inputs: list[Feature], *, step: int, **_: object) -> Feature:
         arrangement, *objects = inputs
         if type(arrangement).__feature_family__ != "arrangement":
             raise TypeError(
@@ -43,10 +41,10 @@ class ArrangeObjects(Transformation):
 
     def instantiate(
         self,
-        inputs: Sequence[Any],
+        inputs: list[Any],
         *,
         step: int,
-        feature_inputs: Sequence[Feature] | None = None,
+        feature_inputs: list[Feature] | None = None,
         feature_output: Feature | None = None,
     ) -> Geometry:
         del step, feature_output
@@ -91,7 +89,7 @@ class ArrangeObjects(Transformation):
         out_h = height * cell_h
         return Geometry(width=out_w, height=out_h, geometries=children)
 
-    def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
+    def describe(self, inputs: list[Feature], output: Feature, *, step: int) -> str:
         del output, step
         arrangement, *objects = inputs
         refs = [obj.refer() for obj in objects]

@@ -3,7 +3,7 @@
 import random
 from dataclasses import dataclass, field
 
-from sparc_agi.canvas import Geometry
+from sparc_agi.geometry import Geometry
 from sparc_agi.features.arrangements.grid import GridArrangement
 from sparc_agi.features.base import Feature, register_feature
 from sparc_agi.features.scalars.color import Color
@@ -11,10 +11,9 @@ from sparc_agi.features.objects.base import Object
 from sparc_agi.features.objects.group import Group
 from sparc_agi.features.objects.point import Point
 from sparc_agi.features.scalars.orientation import Orientation
-from sparc_agi.features.scalars.range import Range
+from sparc_agi.range import RangeSpec
 from sparc_agi.features.sequence import Sequence
 from sparc_agi.features.scalars.size import Size
-
 
 @register_feature("object.sprite")
 @dataclass
@@ -26,8 +25,8 @@ class Sprite(Object):
     """
 
     size: Size
-    color: Color = field(default_factory=lambda: Color(value=Range(0, 9)))
-    orientation: Orientation = field(default_factory=lambda: Orientation(value=Range(0)))
+    color: Color = field(default_factory=lambda: Color(value=RangeSpec(0, 9)))
+    orientation: Orientation = field(default_factory=lambda: Orientation(value=RangeSpec(0)))
 
     def as_group(self) -> Group:
         """Expand to a group of points on a grid arrangement (identity scan)."""

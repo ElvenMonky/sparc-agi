@@ -5,7 +5,6 @@ from dataclasses import dataclass, field
 
 from sparc_agi.features.base import Feature, register_feature
 
-
 @register_feature("sequence")
 @dataclass
 class Sequence(Feature):

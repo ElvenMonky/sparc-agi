@@ -9,7 +9,6 @@ from sparc_agi.puzzle import (
     SampleCounts,
     SpecError,
     format_transformations,
-    validate_spec,
 )
 
 __version__ = "0.1.0"
@@ -24,6 +23,5 @@ __all__ = [
     "format_transformations",
     "load_source",
     "structure_source",
-    "validate_spec",
     "__version__",
 ]

@@ -15,7 +15,6 @@ from dataclasses import dataclass
 from sparc_agi.features.scalars.height import Height
 from sparc_agi.features.scalars.width import Width
 
-
 @dataclass
 class Size:
     width: Width

@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
-from sparc_agi.features.base import Scalar, register_feature
-from sparc_agi.features.scalars.range import Range
+from sparc_agi.features.base import register_feature
+from sparc_agi.features.scalars.base import ScalarSpec
+from sparc_agi.range import RangeSpec
 
 # Dihedral ops for d // 2 (same order as the input-rendering PoC), plus optional +45° when d % 2.
 _TRANSFORMS = (
@@ -35,20 +36,18 @@ _GEOMETRIC: dict[int, str] = {
     15: "flipped over the anti-diagonal and rotated 45° counterclockwise",
 }
 
-
 def transform_xy(x: int, y: int, d: int) -> tuple[int, int]:
     """Apply the axis-aligned dihedral half of orientation ``d`` (45° dropped)."""
     even = d - (d % 2)
     return _TRANSFORMS[even // 2](x, y)
 
-
 @register_feature("orientation")
 @dataclass
-class Orientation(Scalar):
+class Orientation(ScalarSpec):
     def applied_to(self, previous: Orientation) -> Orientation:
         """Compose this orientation onto ``previous`` (additive on range bounds)."""
         base, delta = previous.value, self.value
-        return Orientation(value=Range(base.lo + delta.lo, base.hi + delta.hi, base.step))
+        return Orientation(value=RangeSpec(base.lo + delta.lo, base.hi + delta.hi, base.step))
 
     def describe(self) -> str:
         """Geometric phrase for objects (e.g. ``flipped horizontally``)."""
@@ -74,7 +73,6 @@ class Orientation(Scalar):
             return f"oriented {kind_noun} from step {step}"
         _, _, stem = _action_parts(phrase)
         return f"{stem} {kind_noun} from step {step}"
-
 
 def _action_parts(phrase: str) -> tuple[str, str, str]:
     """Map a geometric phrase to ``(Verb, remainder after target, alias stem)``."""

@@ -1,16 +1,9 @@
-"""Integer range specs for scalar feature values.
-
-JSON form matches the old RangeSpec: a bare ``int`` (exact value) or a list
-``[lo, hi]`` / ``[lo, hi, step]`` (inclusive bounds).
-"""
-
 import random
 from dataclasses import dataclass
 from typing import Any
 
-
 @dataclass(frozen=True)
-class Range:
+class RangeSpec:
     lo: int
     hi: int | None = None
     step: int = 1
@@ -20,8 +13,8 @@ class Range:
             object.__setattr__(self, "hi", self.lo)
 
     @classmethod
-    def from_raw(cls, raw: Any) -> Range:
-        if isinstance(raw, Range):
+    def from_raw(cls, raw: Any) -> RangeSpec:
+        if isinstance(raw, RangeSpec):
             return raw
         if isinstance(raw, bool) or not isinstance(raw, (int, list)):
             raise ValueError(f"range must be an int or list, got {raw!r}")
@@ -48,11 +41,9 @@ class Range:
             return str(self.lo)
         if self.step == 1:
             return f"{self.lo}..{self.hi}"
-        return f"{self.lo}..{self.hi} step {self.step}"
+        return f"{self.lo}..{self.hi} with step {self.step}"
 
     def sample(self, rng: random.Random) -> int:
-        """Pick one inclusive value from this range."""
-        assert self.hi is not None
         n = (self.hi - self.lo) // self.step + 1
         if n <= 0:
             raise ValueError(f"empty range {self.to_raw()!r}")

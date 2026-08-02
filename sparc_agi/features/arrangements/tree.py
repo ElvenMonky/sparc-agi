@@ -5,8 +5,7 @@ from dataclasses import dataclass, field
 
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.base import register_feature
-from sparc_agi.features.scalars.range import Range
-
+from sparc_agi.range import RangeSpec
 
 # Eight neighbors (no center).
 _DIRS8 = (
@@ -19,7 +18,6 @@ _DIRS8 = (
     (1, 0),
     (1, 1),
 )
-
 
 def grow_tree_cells(
     rng: random.Random,
@@ -55,17 +53,15 @@ def grow_tree_cells(
         occupied.add(nxt)
     return cells
 
-
 @dataclass
 class Origin:
     """Optional fixed root cell for a tree arrangement."""
 
-    x: Range = field(default_factory=lambda: Range(0))
-    y: Range = field(default_factory=lambda: Range(0))
+    x: RangeSpec = field(default_factory=lambda: RangeSpec(0))
+    y: RangeSpec = field(default_factory=lambda: RangeSpec(0))
 
     def instantiate(self, rng: random.Random) -> tuple[int, int]:
         return (self.x.sample(rng), self.y.sample(rng))
-
 
 @register_feature("arrangement.tree")
 @dataclass

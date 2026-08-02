@@ -1,61 +1,88 @@
-"""Puzzle dataclasses, validation, description, and generation."""
-
 import random
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any
 
-from sparc_agi.features import Feature
-from sparc_agi.features.scalars.range import Range
+from sparc_agi.features.scalars.color import apply_palette, random_palette, use_palette
+from sparc_agi.features import Feature, FeatureSpec
+from sparc_agi.geometry import Geometry
+from sparc_agi.grid import to_arc_grid
+from sparc_agi.instance_ctx import force_source_key, use_instance_cache
+from sparc_agi.range import RangeSpec
+from sparc_agi.sample import Sample, SampleSpec
 from sparc_agi.transformations import Transformation, WireRef
-
-
-class SpecError(ValueError):
-    """Puzzle failed structural or type validation."""
-
-
-@dataclass
-class SampleCounts:
-    """How many train/test samples to instantiate for a puzzle.
-
-    Values are ranges (a bare int in JSON means an exact count).
-    """
-
-    train: Range
-    test: Range = field(default_factory=lambda: Range(0))
-
+from sparc_agi.types import Palette
 
 @dataclass
 class PuzzleDescription:
-    """Natural-language strings for the puzzle input and transformation steps."""
-
-    input: list[str]
+    input: str
     steps: list[str]
-
-
-@dataclass
-class GeneratedPuzzle:
-    """Fully generated puzzle in ARC-compatible challenge/solution form."""
-
-    cache: dict[str, Any]
-    challenge: dict[str, list[dict[str, Any]]]
-    solution: list[Any]
-    steps: dict[str, list[list[Any]]]
-    description: PuzzleDescription
-    palette: tuple[int, ...]  # display = palette[logical] for 0..9
-
 
 @dataclass
 class Puzzle:
     cache: dict[str, Feature]
-    input: Feature
+    palette: Palette
+    samples: list[Sample]
+    spec: PuzzleSpec
+
+@dataclass
+class PuzzleSpec:
+    cache: dict[str, FeatureSpec]
+    input: FeatureSpec
     skeleton: list[Transformation]
-    samples: SampleCounts
-    # Fixed logical→display colors; remaining 0..9 are shuffled into free slots.
+    samples: SampleSpec
     palette: dict[int, int] = field(default_factory=dict)
 
     def validate(self) -> None:
-        """Validate wiring, feature-family matches, and that every value is used."""
-        validate_spec(self)
+        if not self.skeleton:
+            raise SpecError("skeleton must contain at least one transformation")
+
+        source_refs = _collect_source_refs(self.input)
+        for key in sorted(source_refs):
+            if key not in self.cache:
+                raise SpecError(f"input source key {key!r} is not in cache")
+
+        used_cache: set[str] = set(source_refs)
+        used_steps: set[int] = set()
+
+        for step_index, step in enumerate(self.skeleton):
+            cls = type(step)
+            name = cls.__transformation_name__
+            try:
+                cls.check_arity(len(step.inputs))
+            except ValueError as exc:
+                raise SpecError(f"step {step_index + 1} ({name}): {exc}") from exc
+
+            for slot, wire in enumerate(step.inputs):
+                if isinstance(wire, str) and wire not in self.cache:
+                    raise SpecError(f"step {step_index + 1} ({name}) slot {slot}: unknown cache key {wire!r}")
+                if isinstance(wire, int) and wire > step_index:
+                    raise SpecError(f"step {step_index + 1} ({name}) slot {slot}: reference to step {wire + 1} is not yet available")
+                expected = cls.expected_input_family(slot)
+                actual = self._wire_family(wire)
+                if actual != expected:
+                    raise SpecError(
+                        f"step {step_index} ({name}) slot {slot}: expected feature family "
+                        f"{expected!r}, got {actual!r} from wire {wire!r}"
+                    )
+
+                if isinstance(wire, str):
+                    used_cache.add(wire)
+                else:
+                    used_steps.add(wire)
+
+        unused_cache = set(self.cache) - used_cache
+        if unused_cache:
+            raise SpecError(f"unused cache keys: {sorted(unused_cache)}")
+
+        intermediate = set(range(len(self.skeleton)))
+        unused_steps = sorted(intermediate - used_steps)
+        if unused_steps:
+            names = [type(self.skeleton[i - 1]).__transformation_name__ if i > 0 else "input" for i in unused_steps]
+            raise SpecError(f"unused outputs at steps {unused_steps} ({names})")
+
+        final = type(self.skeleton[-1])
+        if not final.output_feature.startswith("object"):
+            raise SpecError(f"final transformation {final.__transformation_name__!r} must output object', got {final.output_feature!r}")
 
     def describe_input(self) -> str:
         """Natural-language description of the puzzle input feature tree."""
@@ -82,10 +109,6 @@ class Puzzle:
 
     def generate(self, rng: random.Random | None = None) -> GeneratedPuzzle:
         """Instantiate cache once, then per-sample inputs through the skeleton."""
-        from sparc_agi.features.scalars.color import apply_palette, random_palette, use_palette
-        from sparc_agi.instance_ctx import force_source_key, use_instance_cache
-        from sparc_agi.grid import to_arc_grid
-
         self.validate()
         rng = rng if rng is not None else random.Random()
         palette = random_palette(rng, self.palette)
@@ -96,8 +119,6 @@ class Puzzle:
         source_pool = _primary_source_pool(self.input)
 
         def emit_grid(value: Any) -> Any:
-            from sparc_agi.canvas import Geometry
-
             if isinstance(value, Geometry):
                 value = value.to_grid()
             return apply_palette(to_arc_grid(value), palette)
@@ -271,20 +292,18 @@ class Puzzle:
                 raise SpecError(f"step {step_index} ({name}) apply failed: {exc}") from exc
         return outputs
 
-
 PuzzleSource = dict[str, Puzzle]
-
 
 def format_transformations(puzzle: Puzzle, outputs: list[Feature] | None = None) -> str:
     """Human-readable imperative steps for ``puzzle`` (runs ``trace()`` if needed)."""
-    results = outputs if outputs is not None else puzzle.trace()
+    results = outputs if outputs is not None else self.trace()
     if outputs is not None:
-        puzzle._assign_entry_aliases()
+        self._assign_entry_aliases()
     lines = ["Steps:"]
     prior: list[Feature] = []
     n = 0
-    for i, (step, out) in enumerate(zip(puzzle.skeleton, results, strict=True), start=1):
-        resolved = [puzzle.resolve(wire, prior) for wire in step.inputs]
+    for i, (step, out) in enumerate(zip(self.skeleton, results, strict=True), start=1):
+        resolved = [self.resolve(wire, prior) for wire in step.inputs]
         text = step.describe(resolved, out, step=i)
         if text:
             n += 1
@@ -292,17 +311,16 @@ def format_transformations(puzzle: Puzzle, outputs: list[Feature] | None = None)
         prior.append(out)
     return "\n".join(lines)
 
-
 def _wire_family(puzzle: Puzzle, wire: WireRef, step_index: int) -> str:
     """Resolve the feature family carried by ``wire`` as seen from skeleton step ``step_index``."""
     if isinstance(wire, str):
-        if wire not in puzzle.cache:
+        if wire not in self.cache:
             raise SpecError(f"step {step_index}: unknown cache key {wire!r}")
-        return type(puzzle.cache[wire]).__feature_family__
+        return type(self.cache[wire]).__feature_family__
 
     if isinstance(wire, int) and not isinstance(wire, bool):
         if wire == 0:
-            return type(puzzle.input).__feature_family__
+            return type(self.input).__feature_family__
         if wire < 0:
             raise SpecError(f"step {step_index}: invalid wire ref {wire}")
         src = wire - 1
@@ -310,37 +328,17 @@ def _wire_family(puzzle: Puzzle, wire: WireRef, step_index: int) -> str:
             raise SpecError(
                 f"step {step_index}: wire {wire} refers to step {src} which is not yet available"
             )
-        return type(puzzle.skeleton[src]).output_feature
+        return type(self.skeleton[src]).output_feature
 
     raise SpecError(f"step {step_index}: wire ref must be str or int, got {wire!r}")
 
-
-def _iter_features(feat: Feature):
-    """Yield ``feat`` and nested feature values (pools, child traits)."""
-    from dataclasses import fields as dc_fields
-
-    yield feat
-    for f in dc_fields(type(feat)):
-        if f.name in ("source", "alias", "geometry_index"):
-            continue
-        val = getattr(feat, f.name)
-        if isinstance(val, Feature):
-            yield from _iter_features(val)
-        elif isinstance(val, list):
-            for item in val:
-                if isinstance(item, Feature):
-                    yield from _iter_features(item)
-
-
-def _collect_source_refs(feat: Feature) -> set[str]:
-    """Cache keys listed in any ``source`` donor list under ``feat``."""
+def _collect_source_refs(feature: Feature) -> set[str]:
     refs: set[str] = set()
-    for node in _iter_features(feat):
-        keys = getattr(node, "source", None)
-        if isinstance(keys, list) and keys and all(isinstance(k, str) for k in keys):
-            refs.update(keys)
+    for node in _iter_features(feature):
+        key = getattr(node, "source", None)
+        if isinstance(key, str):
+            refs.add(key)
     return refs
-
 
 def _primary_source_pool(feat: Feature) -> list[str]:
     """First non-empty ``source`` list in the feature tree (coverage target)."""
@@ -349,7 +347,6 @@ def _primary_source_pool(feat: Feature) -> list[str]:
         if isinstance(keys, list) and keys and all(isinstance(k, str) for k in keys):
             return list(keys)
     return []
-
 
 def _cover_source_keys(
     pool: list[str], n: int, rng: random.Random
@@ -367,82 +364,3 @@ def _cover_source_keys(
         picks.append(pool[rng.randrange(len(pool))])
     rng.shuffle(picks)
     return picks
-
-
-def validate_spec(puzzle: Puzzle) -> None:
-    """Check arity, feature-family matches, usage, and final object output."""
-    if not puzzle.skeleton:
-        raise SpecError("skeleton must contain at least one transformation")
-
-    for logical, display in puzzle.palette.items():
-        if not (isinstance(logical, int) and not isinstance(logical, bool) and 0 <= logical <= 9):
-            raise SpecError(f"palette key must be int 0..9, got {logical!r}")
-        if not (isinstance(display, int) and not isinstance(display, bool) and 0 <= display <= 9):
-            raise SpecError(f"palette[{logical}] must be int 0..9, got {display!r}")
-    if len(set(puzzle.palette.values())) != len(puzzle.palette):
-        raise SpecError(f"palette display colors must be unique, got {puzzle.palette}")
-
-    source_refs = _collect_source_refs(puzzle.input)
-    for key in sorted(source_refs):
-        if key not in puzzle.cache:
-            raise SpecError(f"input source key {key!r} is not in cache")
-        if type(puzzle.cache[key]).__feature_family__ != "object":
-            raise SpecError(
-                f"input source key {key!r} must be an object, "
-                f"got {type(puzzle.cache[key]).__feature_name__}"
-            )
-
-    source_pool = _primary_source_pool(puzzle.input)
-    if source_pool and puzzle.samples.train.lo < len(source_pool):
-        raise SpecError(
-            f"samples.train must be at least {len(source_pool)} to cover source "
-            f"keys {source_pool}, got lo={puzzle.samples.train.lo}"
-        )
-
-    used_cache: set[str] = set(source_refs)
-    used_input = False
-    used_steps: set[int] = set()
-
-    for step_index, step in enumerate(puzzle.skeleton):
-        cls = type(step)
-        name = cls.__transformation_name__
-        try:
-            cls.check_arity(len(step.inputs))
-        except ValueError as exc:
-            raise SpecError(f"step {step_index} ({name}): {exc}") from exc
-
-        for slot, wire in enumerate(step.inputs):
-            expected = cls.expected_input_family(slot)
-            actual = _wire_family(puzzle, wire, step_index)
-            if actual != expected:
-                raise SpecError(
-                    f"step {step_index} ({name}) slot {slot}: expected feature family "
-                    f"{expected!r}, got {actual!r} from wire {wire!r}"
-                )
-
-            if isinstance(wire, str):
-                used_cache.add(wire)
-            elif wire == 0:
-                used_input = True
-            else:
-                used_steps.add(wire - 1)
-
-    unused_cache = set(puzzle.cache) - used_cache
-    if unused_cache:
-        raise SpecError(f"unused cache keys: {sorted(unused_cache)}")
-
-    if not used_input:
-        raise SpecError("puzzle input is never used")
-
-    intermediate = set(range(len(puzzle.skeleton) - 1))
-    unused_steps = intermediate - used_steps
-    if unused_steps:
-        names = [type(puzzle.skeleton[i]).__transformation_name__ for i in sorted(unused_steps)]
-        raise SpecError(f"unused transformation outputs at steps {sorted(unused_steps)} ({names})")
-
-    final = type(puzzle.skeleton[-1])
-    if final.output_feature != "object":
-        raise SpecError(
-            f"last transformation {final.__transformation_name__!r} must output feature family "
-            f"'object', got {final.output_feature!r}"
-        )

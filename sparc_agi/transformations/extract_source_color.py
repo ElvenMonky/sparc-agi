@@ -1,13 +1,11 @@
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sparc_agi.canvas import Geometry
+from sparc_agi.geometry import Geometry
 from sparc_agi.features.base import Feature
 from sparc_agi.features.scalars.color import Color
-from sparc_agi.features.scalars.range import Range
+from sparc_agi.range import RangeSpec
 from sparc_agi.transformations.base import Transformation, register_transformation
-
 
 @register_transformation("ExtractSourceColor")
 @dataclass
@@ -21,22 +19,22 @@ class ExtractSourceColor(Transformation):
     input_features = ("object",)
     output_feature = "color"
 
-    def apply(self, inputs: Sequence[Feature], *, step: int, **_: object) -> Feature:
+    def apply(self, inputs: list[Feature], *, step: int, **_: object) -> Feature:
         (obj,) = inputs
         if type(obj).__feature_family__ != "object":
             raise TypeError(
                 f"ExtractSourceColor expects an object feature, got {type(obj).__feature_name__}"
             )
-        out = Color(value=Range(0, 9))
+        out = Color(value=RangeSpec(0, 9))
         out.alias = f"hidden color from step {step}"
         return out
 
     def instantiate(
         self,
-        inputs: Sequence[Any],
+        inputs: list[Any],
         *,
         step: int,
-        feature_inputs: Sequence[Feature] | None = None,
+        feature_inputs: list[Feature] | None = None,
         feature_output: Feature | None = None,
     ) -> int:
         del step, feature_inputs, feature_output
@@ -56,7 +54,7 @@ class ExtractSourceColor(Transformation):
             )
         return obj.source.color
 
-    def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
+    def describe(self, inputs: list[Feature], output: Feature, *, step: int) -> str:
         del output, step
         (obj,) = inputs
         return f"Extract hidden color from {obj.refer()}."

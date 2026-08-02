@@ -22,7 +22,6 @@ dataclass fields are traits by convention; see :class:`~sparc_agi.features.base.
 Register a new transformation with ``@register_transformation("Name")``.
 """
 
-from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Callable, ClassVar, TypeVar
 
@@ -33,7 +32,6 @@ WireRef = str | int
 T = TypeVar("T", bound="Transformation")
 
 TRANSFORMATION_REGISTRY: dict[str, type[Transformation]] = {}
-
 
 @dataclass
 class Transformation:
@@ -74,7 +72,7 @@ class Transformation:
                 f"{cls.__transformation_name__} expects {n} input(s), got {n_inputs}"
             )
 
-    def apply(self, inputs: Sequence[Feature], *, step: int, **kwargs: object) -> Feature:
+    def apply(self, inputs: list[Feature], *, step: int, **kwargs: object) -> Feature:
         """Run this transformation on resolved inputs; return the output feature.
 
         ``step`` is the 1-based skeleton index. Implementations should set
@@ -84,10 +82,10 @@ class Transformation:
 
     def instantiate(
         self,
-        inputs: Sequence[Any],
+        inputs: list[Any],
         *,
         step: int,
-        feature_inputs: Sequence[Feature] | None = None,
+        feature_inputs: list[Feature] | None = None,
         feature_output: Feature | None = None,
     ) -> Any:
         """Apply this transformation to already-instantiated input values.
@@ -100,10 +98,9 @@ class Transformation:
         del feature_inputs, feature_output
         raise NotImplementedError(f"{type(self).__name__}.instantiate() is not implemented")
 
-    def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
+    def describe(self, inputs: list[Feature], output: Feature, *, step: int) -> str:
         """Imperative sentence for this step (no leading number; ends with ``.``)."""
         raise NotImplementedError(f"{type(self).__name__}.describe() is not implemented")
-
 
 def register_transformation(name: str) -> Callable[[type[T]], type[T]]:
     """Register a Transformation subclass under a source tag name."""

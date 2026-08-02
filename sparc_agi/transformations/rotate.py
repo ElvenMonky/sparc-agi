@@ -1,12 +1,10 @@
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sparc_agi.canvas import Geometry
+from sparc_agi.geometry import Geometry
 from sparc_agi.features.base import Feature
 from sparc_agi.features.scalars.orientation import Orientation
 from sparc_agi.transformations.base import Transformation, register_transformation
-
 
 @register_transformation("Rotate")
 @dataclass
@@ -21,7 +19,7 @@ class Rotate(Transformation):
     input_features = ("orientation", "object")
     output_feature = "object"
 
-    def apply(self, inputs: Sequence[Feature], *, step: int, **_: object) -> Feature:
+    def apply(self, inputs: list[Feature], *, step: int, **_: object) -> Feature:
         orientation, obj = inputs
         if not isinstance(orientation, Orientation):
             raise TypeError(f"Rotate expects Orientation, got {type(orientation).__name__}")
@@ -38,10 +36,10 @@ class Rotate(Transformation):
 
     def instantiate(
         self,
-        inputs: Sequence[Any],
+        inputs: list[Any],
         *,
         step: int,
-        feature_inputs: Sequence[Feature] | None = None,
+        feature_inputs: list[Feature] | None = None,
         feature_output: Feature | None = None,
     ) -> Geometry:
         del step, feature_output
@@ -60,7 +58,7 @@ class Rotate(Transformation):
                 return obj
         return obj.apply_orientation(orientation)
 
-    def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
+    def describe(self, inputs: list[Feature], output: Feature, *, step: int) -> str:
         del output, step
         orientation, obj = inputs
         if not isinstance(orientation, Orientation):

@@ -10,7 +10,8 @@ from matplotlib.figure import Figure
 
 from sparc_agi.features.base import Feature
 from sparc_agi.features.scalars.orientation import Orientation
-from sparc_agi.features.scalars.range import Range
+from sparc_agi.range import RangeSpec
+from sparc_agi.geometry import Geometry
 
 # Standard ARC palette (0–9), plus an extra slot for out-of-range values like 10.
 ARC_COLORS = [
@@ -28,7 +29,6 @@ ARC_COLORS = [
 ]
 ARC_CMAP = ListedColormap(ARC_COLORS)
 
-
 def _is_int_grid(value: Any) -> bool:
     if not isinstance(value, list) or not value:
         return False
@@ -38,7 +38,6 @@ def _is_int_grid(value: Any) -> bool:
         isinstance(row, list) and all(isinstance(cell, int) and not isinstance(cell, bool) for cell in row)
         for row in value
     )
-
 
 def _is_placement_list(value: Any) -> bool:
     """True for arrangement instances: ``[((x, y), pool_index), ...]``."""
@@ -55,7 +54,6 @@ def _is_placement_list(value: Any) -> bool:
         and isinstance(idx, int)
         and not isinstance(idx, bool)
     )
-
 
 def placements_to_index_grid(
     placements: list[Any],
@@ -75,16 +73,12 @@ def placements_to_index_grid(
             grid[y][x] = idx
     return grid
 
-
 def _is_arrangement_step(value: Any) -> bool:
     """True for recorded arrangement step payloads ``{placements, width?, height?}``."""
     return isinstance(value, dict) and "placements" in value
 
-
 def plot_step_visual(ax: Axes, value: Any, title: str = "") -> None:
     """Draw a sample step: ARC object grid, arrangement index grid, or color swatch."""
-    from sparc_agi.canvas import Geometry
-
     if isinstance(value, Geometry):
         plot_arc_grid(ax, value.to_grid(background=0), title=title)
         return
@@ -113,7 +107,6 @@ def plot_step_visual(ax: Axes, value: Any, title: str = "") -> None:
     ax.axis("off")
     if title:
         ax.set_title(title, fontsize=9, pad=2)
-
 
 def plot_arc_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> None:
     """Draw an ARC color grid with light cell borders."""
@@ -144,7 +137,6 @@ def plot_arc_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> None
         spine.set_linewidth(0.5)
     if title:
         ax.set_title(title, fontsize=8, pad=1)
-
 
 def plot_index_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> None:
     """Draw a small integer grid (e.g. pool indices) with cell labels."""
@@ -184,9 +176,8 @@ def plot_index_grid(ax: Axes, grid_data: list[list[int]], title: str = "") -> No
     if title:
         ax.set_title(title, fontsize=8, pad=1)
 
-
 def _orientation_short_label(direction: int) -> str:
-    phrase = Orientation(value=Range(direction)).describe()
+    phrase = Orientation(value=RangeSpec(direction)).describe()
     if not phrase:
         return "identity"
     if phrase == "flipped horizontally":
@@ -201,7 +192,6 @@ def _orientation_short_label(direction: int) -> str:
         return "transpose"
     return phrase
 
-
 def cache_kind_label(feature: Feature | None, value: Any) -> str:
     if feature is not None:
         return feature.__feature_family__
@@ -213,10 +203,8 @@ def cache_kind_label(feature: Feature | None, value: Any) -> str:
         return "object"
     return "value"
 
-
 def _cache_value_empty(value: Any) -> bool:
     return value is None or value == {} or value == [] or value == ()
-
 
 def cache_value_summary(feature: Feature | None, value: Any) -> str:
     """Short natural-language line under the cache key header."""
@@ -242,7 +230,6 @@ def cache_value_summary(feature: Feature | None, value: Any) -> str:
         return feature.describe()
     return repr(value)
 
-
 def plot_cache_visual(ax: Axes, value: Any) -> bool:
     """Draw cache visual content. Returns False when there is nothing visual to show."""
     if _is_int_grid(value):
@@ -264,7 +251,6 @@ def plot_cache_visual(ax: Axes, value: Any) -> bool:
         return True
     ax.axis("off")
     return False
-
 
 def _cache_has_visual(value: Any) -> bool:
     return (

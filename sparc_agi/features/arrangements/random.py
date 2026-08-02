@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.base import register_feature
 
-
 @register_feature("arrangement.random")
 @dataclass
 class RandomArrangement(Arrangement):

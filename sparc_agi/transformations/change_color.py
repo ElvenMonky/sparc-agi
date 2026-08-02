@@ -1,16 +1,13 @@
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sparc_agi.canvas import Geometry
+from sparc_agi.geometry import Geometry
 from sparc_agi.features.base import Feature
 from sparc_agi.features.scalars.color import Color
 from sparc_agi.features.objects.base import Object
 from sparc_agi.features.objects.group import Group
-from sparc_agi.features.objects.source import pool_member_via_source
 from sparc_agi.transformations.base import Transformation, register_transformation
 from sparc_agi.transformations.pick_object import _require_geometry_index
-
 
 def _recolor_object(obj: Object, color: Color) -> Object:
     """Set ``color`` on ``obj``, or recursively on a group's pool."""
@@ -19,7 +16,6 @@ def _recolor_object(obj: Object, color: Color) -> Object:
     if isinstance(obj, Group):
         return obj.derived(pool=[_recolor_object(item, color) for item in obj.pool])
     raise TypeError(f"cannot ChangeColor on {type(obj).__feature_name__} (no color trait)")
-
 
 @register_transformation("ChangeColor")
 @dataclass
@@ -48,7 +44,7 @@ class ChangeColor(Transformation):
             return "object"
         raise IndexError(f"ChangeColor has no input slot {slot}")
 
-    def apply(self, inputs: Sequence[Feature], *, step: int, **_: object) -> Feature:
+    def apply(self, inputs: list[Feature], *, step: int, **_: object) -> Feature:
         if len(inputs) == 2:
             color, obj = inputs
             if not isinstance(color, Color):
@@ -93,10 +89,10 @@ class ChangeColor(Transformation):
 
     def instantiate(
         self,
-        inputs: Sequence[Any],
+        inputs: list[Any],
         *,
         step: int,
-        feature_inputs: Sequence[Feature] | None = None,
+        feature_inputs: list[Feature] | None = None,
         feature_output: Feature | None = None,
     ) -> Geometry:
         del step, feature_output
@@ -117,7 +113,7 @@ class ChangeColor(Transformation):
         child = group.child_at(index)
         return group.replace_index(index, child.recolor(color))
 
-    def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
+    def describe(self, inputs: list[Feature], output: Feature, *, step: int) -> str:
         del output, step
         if len(inputs) == 2:
             color, obj = inputs

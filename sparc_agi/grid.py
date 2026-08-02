@@ -6,12 +6,10 @@ Grid = list[list[int]]
 Placement = tuple[tuple[int, int], int]
 BBox = tuple[int, int, int, int]  # x, y, w, h
 
-
 def grid_size(grid: Grid) -> tuple[int, int]:
     if not grid:
         return (0, 0)
     return (len(grid[0]), len(grid))
-
 
 def apply_orientation(grid: Grid, direction: int) -> Grid:
     """Map each cell through ``direction``'s axis-aligned dihedral transform."""
@@ -33,11 +31,9 @@ def apply_orientation(grid: Grid, direction: int) -> Grid:
         out[y][x] = v
     return out
 
-
 def to_arc_grid(grid: Grid) -> Grid:
     """Replace transparent (``-1``) cells with ARC background ``0``."""
     return [[0 if cell < 0 else cell for cell in row] for row in grid]
-
 
 def placements_to_mask(placements: list[Placement]) -> Grid:
     """Binary occupancy grid covering placement coordinates."""
@@ -49,7 +45,6 @@ def placements_to_mask(placements: list[Placement]) -> Grid:
     for (x, y), _ in placements:
         out[y][x] = 1
     return out
-
 
 def _stamp_clipped(out: Grid, stamp: Grid, ox: int, oy: int) -> None:
     """Stamp ``stamp`` onto ``out`` at ``(ox, oy)``, clipping to canvas bounds."""
@@ -69,7 +64,6 @@ def _stamp_clipped(out: Grid, stamp: Grid, ox: int, oy: int) -> None:
                 continue
             out[py][px] = val
 
-
 def bboxes_respect_gap(a: BBox, b: BBox, gap_x: int, gap_y: int) -> bool:
     """True if boxes keep at least ``gap_x`` / ``gap_y`` between edges.
 
@@ -83,7 +77,6 @@ def bboxes_respect_gap(a: BBox, b: BBox, gap_x: int, gap_y: int) -> bool:
         or ay + ah + gap_y <= by
         or by + bh + gap_y <= ay
     )
-
 
 def compose_placements(
     placements: list[Placement],
@@ -138,7 +131,6 @@ def compose_placements(
             oy = margin_top + gy * stride_y
             _stamp_clipped(out, stamp, ox, oy)
     return out
-
 
 def compose_free(
     width: int,

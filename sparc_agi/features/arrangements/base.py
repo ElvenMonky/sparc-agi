@@ -8,7 +8,6 @@ from sparc_agi.features.sequence import Sequence
 from sparc_agi.features.scalars.size import Size
 from sparc_agi.features.spacing import Spacing
 
-
 @dataclass
 class Arrangement(Feature):
     """Placement plan for object copies.

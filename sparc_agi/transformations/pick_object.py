@@ -1,20 +1,17 @@
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sparc_agi.canvas import Geometry
+from sparc_agi.geometry import Geometry
 from sparc_agi.features.base import Feature
 from sparc_agi.features.filter import Filter
 from sparc_agi.features.objects.base import Object
 from sparc_agi.features.objects.group import Group
 from sparc_agi.transformations.base import Transformation, register_transformation
 
-
 def _require_geometry_index(feat: Feature | None, *, who: str) -> int:
     if feat is None or feat.geometry_index is None:
         raise ValueError(f"{who}: feature has no geometry_index")
     return feat.geometry_index
-
 
 @register_transformation("PickObject")
 @dataclass
@@ -30,7 +27,7 @@ class PickObject(Transformation):
     input_features = ("filter", "object")
     output_feature = "object"
 
-    def apply(self, inputs: Sequence[Feature], *, step: int, **_: object) -> Feature:
+    def apply(self, inputs: list[Feature], *, step: int, **_: object) -> Feature:
         filt, obj = inputs
         if not isinstance(filt, Filter):
             raise TypeError(f"PickObject expects Filter, got {type(filt).__name__}")
@@ -50,10 +47,10 @@ class PickObject(Transformation):
 
     def instantiate(
         self,
-        inputs: Sequence[Any],
+        inputs: list[Any],
         *,
         step: int,
-        feature_inputs: Sequence[Feature] | None = None,
+        feature_inputs: list[Feature] | None = None,
         feature_output: Feature | None = None,
     ) -> Geometry:
         del step, feature_inputs
@@ -65,7 +62,7 @@ class PickObject(Transformation):
         index = _require_geometry_index(feature_output, who="PickObject.instantiate")
         return parent.child_at(index).as_root()
 
-    def describe(self, inputs: Sequence[Feature], output: Feature, *, step: int) -> str:
+    def describe(self, inputs: list[Feature], output: Feature, *, step: int) -> str:
         del output, step
         filt, obj = inputs
         if not isinstance(filt, Filter):

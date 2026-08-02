@@ -3,13 +3,12 @@
 import random
 from dataclasses import dataclass
 
-from sparc_agi.canvas import Geometry
+from sparc_agi.geometry import Geometry
 from sparc_agi.features.arrangements.base import Arrangement
 from sparc_agi.features.base import register_feature
 from sparc_agi.features.objects.base import Object
 from sparc_agi.features.spacing import SpacingValues
 from sparc_agi.grid import BBox, bboxes_respect_gap
-
 
 @register_feature("arrangement.free")
 @dataclass
