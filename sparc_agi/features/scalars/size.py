@@ -1,14 +1,3 @@
-"""Composite of width/height features.
-
-In the source, size is nested as bare scalar payloads under field names that
-match the feature tags::
-
-    "size": { "width": 3, "height": 3 }
-
-Top-level cache/input entries can still use the tagged feature form
-``{ "width": 3 }`` / ``{ "height": 3 }``.
-"""
-
 import random
 from dataclasses import dataclass
 

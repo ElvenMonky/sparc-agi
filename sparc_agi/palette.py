@@ -24,7 +24,7 @@ COLOR_NAMES = (
     "maroon",
 )
 
-COLOR_HEX = (
+ARC_COLORS = (
     "#000000",
     "#0074D9",
     "#FF4136",
@@ -97,7 +97,7 @@ class Palette:
                     (key, 0),
                     1,
                     1,
-                    facecolor=COLOR_HEX[value],
+                    facecolor=ARC_COLORS[value],
                     edgecolor="#666666",
                     linewidth=0.5,
                 )

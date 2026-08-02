@@ -12,21 +12,8 @@ from sparc_agi.features.base import Feature
 from sparc_agi.features.scalars.orientation import Orientation
 from sparc_agi.range import RangeSpec
 from sparc_agi.geometry import Geometry
+from sparc_agi.palette import ARC_COLORS
 
-# Standard ARC palette (0–9), plus an extra slot for out-of-range values like 10.
-ARC_COLORS = [
-    "#000000",  # 0 black
-    "#0074D9",  # 1 blue
-    "#FF4136",  # 2 red
-    "#2ECC40",  # 3 green
-    "#FFDC00",  # 4 yellow
-    "#AAAAAA",  # 5 grey
-    "#F012BE",  # 6 magenta
-    "#FF851B",  # 7 orange
-    "#7FDBFF",  # 8 teal
-    "#870C25",  # 9 maroon
-    "#FFFFFF",  # 10+ fallback (white)
-]
 ARC_CMAP = ListedColormap(ARC_COLORS)
 
 def _is_int_grid(value: Any) -> bool:

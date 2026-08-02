@@ -51,8 +51,6 @@ class FeatureSpec:
 
     def derived(self, **changes) -> Self:
         """Copy with ``source`` pointing at ``self`` (unless ``source`` is overridden)."""
-        if "geometry_index" not in changes:
-            changes["geometry_index"] = None
         if "source" not in changes:
             changes["source"] = self
         return replace(self, alias=None, **changes)
@@ -60,7 +58,7 @@ class FeatureSpec:
     def _iter_features(self):
         yield self
         for f in fields(type(self)):
-            if f.name in ("source", "alias", "geometry_index"):
+            if f.name in _BASE_FIELDS:
                 continue
             val = getattr(self, f.name)
             if isinstance(val, Feature):
@@ -98,6 +96,10 @@ class FeatureSpec:
     def instantiate(self, rng: random.Random) -> Any:
         """Sample a concrete value for this feature."""
         raise NotImplementedError(f"{type(self).__name__}.instantiate() is not implemented")
+
+@dataclass
+class Feature:
+    spec: FeatureSpec
 
 def register_feature(name: str) -> Callable[[type[F]], type[F]]:
     """Register a Feature subclass under a source tag name."""
