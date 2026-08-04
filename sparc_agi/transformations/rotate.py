@@ -1,9 +1,0 @@
-from dataclasses import dataclass
-
-from sparc_agi.transformations.base import Transformation, register_transformation
-
-@register_transformation("Rotate")
-@dataclass
-class Rotate(Transformation):
-    input_features = ("orientation", "object")
-    output_feature = "object"
