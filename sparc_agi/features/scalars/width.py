@@ -5,5 +5,5 @@ from sparc_agi.features.scalars.base import ScalarSpec
 
 @register_feature("width")
 @dataclass
-class Width(ScalarSpec):
+class WidthSpec(ScalarSpec):
     pass

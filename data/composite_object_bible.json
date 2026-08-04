@@ -1,0 +1,60 @@
+{
+    "sprite": {
+        "color": [0, 9],
+        "size": {
+            "width": [2, 32],
+            "height": [2, 32]
+        },
+        "object.group": {
+            "layout.grid": {
+                "size": "sprite.size"
+            },
+            "pool": [
+                {
+                    "object.point": {
+                        "color": "sprite.color"
+                    }
+                }
+            ]
+        }
+    },
+    "glyph": {
+        "color": [0, 9],
+        "object.group": {
+            "count": [2, 8],
+            "layout.grid": {
+                "size": {
+                    "width": 3,
+                    "height": 3
+                }
+            },
+            "pool": [
+                {
+                    "object.point": {
+                        "color": "glyph.color"
+                    },
+                    "variants": 1
+                }
+            ]
+        }
+    },
+    "tree_structure": {
+        "color": [0, 9],
+        "count": [2, 1000],
+        "spacing": 0,
+        "object.group": {
+            "layout.tree": {
+                "count": "tree_structure.count",
+                "spacing": "tree_structure.spacing"
+            },
+            "pool": [
+                {
+                    "object.point": {
+                        "color": "tree_structure.color"
+                    },
+                    "variants": 1
+                }
+            ]
+        }
+    }
+}

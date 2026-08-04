@@ -17,11 +17,14 @@ Register a new feature with ``@register_feature("<family>.<kind>")``.
 from dataclasses import MISSING, dataclass, field, fields, replace
 from typing import Any, Callable, ClassVar, Self, TypeVar
 
-F = TypeVar("F", bound="Feature")
+F = TypeVar("F", bound="FeatureSpec")
 
-FEATURE_REGISTRY: dict[str, type[Feature]] = {}
+FEATURE_REGISTRY: dict[str, type[FeatureSpec]] = {}
 
 _BASE_FIELDS: frozenset[str] = frozenset({"source", "alias"})
+
+def feature_family(name: str) -> str:
+    return name.split(".", 1)[0]
 
 @dataclass
 class FeatureSpec:
@@ -35,7 +38,6 @@ class FeatureSpec:
     source: Any = field(default=None, kw_only=True, compare=False, repr=False)
     # Referential name for descriptions ("input sprite", "rotated sprite from step 1").
     alias: str | None = field(default=None, kw_only=True, compare=False, repr=False)
-
     @classmethod
     def trait_names(cls) -> frozenset[str]:
         excluded = _BASE_FIELDS | cls.__non_traits__
@@ -61,16 +63,16 @@ class FeatureSpec:
             if f.name in _BASE_FIELDS:
                 continue
             val = getattr(self, f.name)
-            if isinstance(val, Feature):
-                yield from _iter_features(val)
+            if isinstance(val, FeatureSpec):
+                yield from val._iter_features()
             elif isinstance(val, list):
                 for item in val:
-                    if isinstance(item, Feature):
-                        yield from _iter_features(item)
+                    if isinstance(item, FeatureSpec):
+                        yield from item._iter_features()
             elif isinstance(val, dict):
                 for item in val.values():
-                    if isinstance(item, Feature):
-                        yield from _iter_features(item)
+                    if isinstance(item, FeatureSpec):
+                        yield from item._iter_features()
 
     def refer(self) -> str:
         """Name used when this feature is referenced from another description."""
@@ -105,12 +107,12 @@ def register_feature(name: str) -> Callable[[type[F]], type[F]]:
     """Register a Feature subclass under a source tag name."""
 
     def decorator(cls: type[F]) -> type[F]:
-        if not issubclass(cls, Feature):
-            raise TypeError(f"{cls.__name__} must subclass Feature")
+        if not issubclass(cls, FeatureSpec):
+            raise TypeError(f"{cls.__name__} must subclass FeatureSpec")
         if name in FEATURE_REGISTRY:
             raise ValueError(f"feature {name!r} already registered as {FEATURE_REGISTRY[name].__name__}")
         cls.__feature_name__ = name
-        cls.__feature_family__ = name.split(".", 1)[0]
+        cls.__feature_family__ = feature_family(name)
         FEATURE_REGISTRY[name] = cls
         return cls
 

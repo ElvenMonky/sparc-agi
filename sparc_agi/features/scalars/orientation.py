@@ -43,11 +43,11 @@ def transform_xy(x: int, y: int, d: int) -> tuple[int, int]:
 
 @register_feature("orientation")
 @dataclass
-class Orientation(ScalarSpec):
-    def applied_to(self, previous: Orientation) -> Orientation:
+class OrientationSpec(ScalarSpec):
+    def applied_to(self, previous: OrientationSpec) -> OrientationSpec:
         """Compose this orientation onto ``previous`` (additive on range bounds)."""
         base, delta = previous.value, self.value
-        return Orientation(value=Range(base.lo + delta.lo, base.hi + delta.hi, base.step))
+        return OrientationSpec(value=Range(base.lo + delta.lo, base.hi + delta.hi, base.step))
 
     def describe(self) -> str:
         """Geometric phrase for objects (e.g. ``flipped horizontally``)."""

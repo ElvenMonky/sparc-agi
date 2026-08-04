@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from sparc_agi.parser import load_source
+from sparc_agi import structure_puzzle
 from sparc_agi.puzzle import GeneratedPuzzle
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,9 +52,10 @@ def generate_all(
     """Generate unique instances for every puzzle in the source."""
     rng = rng if rng is not None else random.Random()
     source_path = _resolve_path(source_path)
-    source = load_source(source_path)
+    source = json.loads(source_path.read_text())
     results: dict[str, GeneratedPuzzle] = {}
-    for puzzle_id, puzzle in source.items():
+    for puzzle_id, raw_puzzle in source.items():
+        puzzle = structure_puzzle(raw_puzzle)
         # Independent stream per puzzle so ordering stays stable if the source grows.
         puzzle_rng = random.Random(rng.randrange(2**63))
         results[puzzle_id] = puzzle.generate(puzzle_rng)

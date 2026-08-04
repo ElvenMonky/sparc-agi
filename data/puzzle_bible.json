@@ -5,17 +5,15 @@
         "orientation": 12
       },
       "b": {
-        "arrangement.grid": {
+        "layout.grid": {
           "size": {
             "width": 3,
             "height": 3
+          },
+          "pattern.linear": {
+            "orientation": 2,
+            "pattern": [0, 1, 0]
           }
-        }
-      },
-      "c": {
-        "pattern.linear": {
-          "orientation": 2,
-          "pattern": [0, 1, 0]
         }
       }
     },
@@ -36,12 +34,11 @@
         "Rotate": ["a", 0]
       },
       {
-        "ArrangeObjects": ["b", "c", null, 0, 1]
+        "ArrangeObjects": ["b", 0, 1]
       }
     ]
   },
   "007bbfb7": {
-    "cache": {},
     "input": {
       "object.glyph": {
         "color": [1, 9]
@@ -56,10 +53,10 @@
     },
     "skeleton": [
       {
-        "ExtractArrangement": [0]
+        "ExtractLayout": [0]
       },
       {
-        "ArrangeObjects": [1, null, null, 0]
+        "ArrangeObjects": [1, 0]
       }
     ]
   },
@@ -77,8 +74,10 @@
         }
       },
       "c": {
+        "scope": "sample",
         "mapping.color": {
-          "trait": "arrangement",
+          "key": "layout",
+          "variants": 3,
           "color": [3, 5]
         }
       }
@@ -90,13 +89,15 @@
           "height": 14
         },
         "count": 2,
-        "spacing": { "margin": 0, "gap": 1 },
-        "pattern": {
-          "prefix": [0, 1]
+        "layout.free": {
+          "spacing": { "gap": 1 },
+          "pattern": {
+            "prefix": [0, 1]
+          }
         },
         "pool": [
           {
-            "object.tree": {
+            "object.tree_structure": {
               "color": 2,
               "count": [15, 30]
             }
@@ -123,13 +124,13 @@
         "PickObject": [0, "a"]
       },
       {
-        "ExtractMappedColor": [1]
-      },
-      {
         "RemoveObjects": [0, "a"]
       },
       {
-        "ChangeColor": [2, 3, "b"]
+        "ExtractMappedColor": [1]
+      },
+      {
+        "ChangeColor": [3, 2, "b"]
       }
     ]
   },
@@ -137,7 +138,7 @@
     "cache": {
       "a": {
         "filter": {
-          "index": [0, 0]
+          "index": "0.0"
         }
       },
       "b": {
@@ -147,12 +148,14 @@
     "input": {
       "object.group": {
         "count": [1, 3],
-        "spacing": { "margin": [0, 2], "gap": 1 },
+        "layout.free": {
+          "spacing": { "margin": [0, 2], "gap": 1 }
+        },
         "pool": [
           {
-            "object.tree": {
+            "object.tree_structure": {
               "count": [2, 8],
-              "spacing": { "margin": 0, "gap": -1 },
+              "spacing": { "gap": -1 },
               "pool": [
                 {
                   "object.rectangle": {
@@ -189,7 +192,8 @@
     "cache": {
       "a": {
         "mapping.color": {
-          "trait": "size",
+          "key": "size.width",
+          "variants": 3,
           "color": [2, 4]
         }
       },
@@ -202,7 +206,9 @@
     "input": {
       "object.group": {
         "count": [1, 4],
-        "spacing": { "margin": [0, 2], "gap": 1 },
+        "layout.free": {
+          "spacing": { "margin": [0, 2], "gap": 1 }
+        },
         "pool": [
           {
             "object.rectangle": {
@@ -230,7 +236,7 @@
     },
     "skeleton": [
       {
-        "ApplyColorMapping": [0, "b"]
+        "ChangeColor": ["a", 0, "b"]
       }
     ]
   }

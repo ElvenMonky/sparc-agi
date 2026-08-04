@@ -1,96 +1,10 @@
 from dataclasses import dataclass
-from typing import Any
 
-from sparc_agi.geometry import Geometry
-from sparc_agi.features.base import Feature
-from sparc_agi.features.objects.group import Group, join_copy_refs
-from sparc_agi.grid import Placement
 from sparc_agi.transformations.base import Transformation, register_transformation
 
 @register_transformation("ArrangeObjects")
 @dataclass
 class ArrangeObjects(Transformation):
-    """Place one or more objects onto an arrangement → ``object.group``.
-
-    Inputs: ``[arrangement, object, object?, ...]`` (variadic object slots).
-    The object inputs are stored unchanged as the group's pool; the arrangement
-    (and its sequence) decides how copies of those items are laid out.
-    """
-
-    input_features = ("arrangement", "object")
+    input_features = ("layout", "object")
     input_variadic = True
     output_feature = "object"
-
-    def apply(self, inputs: list[Feature], *, step: int, **_: object) -> Feature:
-        arrangement, *objects = inputs
-        if type(arrangement).__feature_family__ != "arrangement":
-            raise TypeError(
-                f"ArrangeObjects expects an arrangement feature, got {type(arrangement).__feature_name__}"
-            )
-        if not objects:
-            raise ValueError("ArrangeObjects requires at least one object")
-        for obj in objects:
-            if type(obj).__feature_family__ != "object":
-                raise TypeError(
-                    f"ArrangeObjects expects object features, got {type(obj).__feature_name__}"
-                )
-
-        out = Group(arrangement=arrangement, pool=list(objects))
-        out.alias = f"group from step {step}"
-        return out
-
-    def instantiate(
-        self,
-        inputs: list[Any],
-        *,
-        step: int,
-        feature_inputs: list[Feature] | None = None,
-        feature_output: Feature | None = None,
-    ) -> Geometry:
-        del step, feature_output
-        arrangement, *objects = inputs
-        if not isinstance(arrangement, list):
-            raise TypeError(
-                f"ArrangeObjects.instantiate expects placement list, got {type(arrangement).__name__}"
-            )
-        if not objects:
-            raise ValueError("ArrangeObjects requires at least one object")
-        for obj in objects:
-            if not isinstance(obj, Geometry):
-                raise TypeError(
-                    f"ArrangeObjects.instantiate expects Geometry objects, got {type(obj).__name__}"
-                )
-        placements: list[Placement] = arrangement
-        width = height = None
-        if feature_inputs is not None:
-            arr_feat = feature_inputs[0]
-            size = getattr(arr_feat, "size", None)
-            if size is not None:
-                wv, hv = size.width.value, size.height.value
-                if wv.lo == wv.hi and hv.lo == hv.hi:
-                    width, height = wv.lo, hv.lo
-        if width is None:
-            width = max((x for (x, _), _ in placements), default=-1) + 1
-        if height is None:
-            height = max((y for (_, y), _ in placements), default=-1) + 1
-
-        cell_w = max((o.size()[0] for o in objects), default=1)
-        cell_h = max((o.size()[1] for o in objects), default=1)
-        children: list[Geometry] = []
-        for (gx, gy), pool_idx in placements:
-            if pool_idx < 0 or pool_idx >= len(objects):
-                continue
-            child = objects[pool_idx].copy()
-            child.x = gx * cell_w
-            child.y = gy * cell_h
-            child.slot = pool_idx
-            children.append(child)
-        out_w = width * cell_w
-        out_h = height * cell_h
-        return Geometry(width=out_w, height=out_h, geometries=children)
-
-    def describe(self, inputs: list[Feature], output: Feature, *, step: int) -> str:
-        del output, step
-        arrangement, *objects = inputs
-        refs = [obj.refer() for obj in objects]
-        return f"Arrange {join_copy_refs(refs)} into {arrangement.refer()}."

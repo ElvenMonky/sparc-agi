@@ -13,5 +13,5 @@ __all__ = ["Range", "Scalar", "ScalarSpec", "load_scalar_features"]
 
 def load_scalar_features() -> None:
     """Import scalar modules so ``@register_feature`` / ``Size`` are available."""
-    for module_name in ("color", "count", "height", "width", "orientation", "size"):
+    for module_name in ("color", "count", "height", "orientation", "size", "width"):
         importlib.import_module(f"{__name__}.{module_name}")

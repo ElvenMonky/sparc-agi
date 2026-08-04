@@ -5,5 +5,5 @@ from sparc_agi.features.scalars.base import ScalarSpec
 
 @register_feature("count")
 @dataclass
-class Count(ScalarSpec):
+class CountSpec(ScalarSpec):
     pass

@@ -27,15 +27,19 @@ import cattrs
 from cattrs.gen import make_dict_structure_fn, make_dict_unstructure_fn, override
 
 from sparc_agi.features import FEATURE_REGISTRY, FeatureSpec, Size, feature_family
-from sparc_agi.features.arrangements.base import Arrangement
+from sparc_agi.features.cut import Cut
+from sparc_agi.features.filter import FilterSpec
+from sparc_agi.features.layouts.base import LayoutSpec
 from sparc_agi.features.scalars.base import ScalarSpec
-from sparc_agi.features.scalars.height import Height
-from sparc_agi.features.objects.base import Object
+from sparc_agi.features.scalars.height import HeightSpec
+from sparc_agi.features.objects.base import ObjectSpec, PoolItem
+from sparc_agi.features.patterns.base import PatternSpec
 from sparc_agi.range import Range
 from sparc_agi.features.spacing import Gap, Margin
-from sparc_agi.features.scalars.width import Width
-from sparc_agi.puzzle import Puzzle, PuzzleSource, SpecError
-from sparc_agi.transformations import TRANSFORMATION_REGISTRY, Transformation, WireRef
+from sparc_agi.features.scalars.width import WidthSpec
+from sparc_agi.puzzle_spec.palette import PaletteSpec
+from sparc_agi.puzzle_spec.puzzle import CacheItem, PuzzleSpec
+from sparc_agi.transformations import TRANSFORMATION_REGISTRY, Transformation
 
 converter = cattrs.Converter()
 
@@ -46,8 +50,8 @@ def _is_plain_dataclass(t: Any) -> bool:
     return (
         is_dataclass(t)
         and isinstance(t, type)
-        and t not in (Size, Range, Gap, Margin)
-        and not issubclass(t, (FeatureSpec, Transformation))
+        and t not in (Size, Range, Cut, Gap, Margin)
+        and not issubclass(t, FeatureSpec)
     )
 
 # Plain nested dataclasses on demand. Size / Range / Features have dedicated hooks.
@@ -87,6 +91,8 @@ converter.register_structure_hook(Gap, structure_gap_spec)
 converter.register_unstructure_hook(Gap, unstructure_gap_spec)
 converter.register_structure_hook(Margin, structure_margin_spec)
 converter.register_unstructure_hook(Margin, unstructure_margin_spec)
+converter.register_structure_hook(Cut, lambda obj, _type: Cut.from_raw(obj))
+converter.register_unstructure_hook(Cut, lambda obj: obj.to_raw())
 
 def structure_scalar_feature(obj: Any, cls: type[FeatureSpec]) -> FeatureSpec:
     """Structure a concrete scalar feature from a bare Range payload (or instance)."""
@@ -120,19 +126,25 @@ def structure_size(obj: Any, _type: type) -> Size:
     if not isinstance(obj, dict):
         raise ValueError(f"size must be an object, got {obj!r}")
     try:
-        return Size(
-            width=_structure_nested_scalar(obj["width"], Width),
-            height=_structure_nested_scalar(obj["height"], Height),
+        size = Size(
+            width=_structure_nested_scalar(obj["width"], WidthSpec),
+            height=_structure_nested_scalar(obj["height"], HeightSpec),
         )
+        if "ratio" in obj:
+            size.ratio = converter.structure(obj["ratio"], Range)
+        return size
     except KeyError as exc:
         raise ValueError(f"size requires 'width' and 'height', got {obj!r}") from exc
 
 def unstructure_size(obj: Size) -> dict[str, int | list[int]]:
     # Nested form keeps bare range payloads; tagged form is only for FeatureSpec slots.
-    return {
+    payload = {
         "width": converter.unstructure(obj.width.value),
         "height": converter.unstructure(obj.height.value),
     }
+    if obj.ratio is not None:
+        payload["ratio"] = converter.unstructure(obj.ratio)
+    return payload
 
 converter.register_structure_hook(Size, structure_size)
 converter.register_unstructure_hook(Size, unstructure_size)
@@ -196,6 +208,12 @@ def structure_feature(obj: Any, _type: type) -> FeatureSpec:
 
     if issubclass(cls, ScalarSpec):
         return structure_scalar_feature(payload, cls)
+    if cls is FilterSpec:
+        return FilterSpec(
+            index=payload.get("index"),
+            criteria=list(payload.get("criteria", [])),
+            values=dict(payload.get("values", {})),
+        )
     return _structure_concrete(payload, cls)
 
 def _unstructure_composite_payload(obj: FeatureSpec) -> dict[str, Any]:
@@ -209,7 +227,7 @@ def _unstructure_composite_payload(obj: FeatureSpec) -> dict[str, Any]:
         val = getattr(obj, f.name)
         if val is None:
             continue
-        # Omit nested defaults (e.g. Arrangement.spacing, Sequence.prefix).
+        # Omit nested defaults (e.g. LayoutSpec.spacing, PatternSpec.prefix).
         if f.default_factory is not MISSING and val == f.default_factory():
             continue
         if f.default is not MISSING and val == f.default:
@@ -223,7 +241,7 @@ def _unstructure_composite_payload(obj: FeatureSpec) -> dict[str, Any]:
             ann = hints.get(f.name)
             if tag == f.name:
                 payload[f.name] = inner
-            elif ann in (FeatureSpec, Arrangement, Object):
+            elif ann in (FeatureSpec, LayoutSpec, ObjectSpec):
                 payload[tag] = inner
             else:
                 payload[f.name] = tagged
@@ -245,85 +263,78 @@ def unstructure_feature(obj: FeatureSpec) -> dict[str, Any]:
         payload = _unstructure_composite_payload(obj)
     return {cls.__feature_name__: payload}
 
-def _parse_transformation_tag(obj: Any) -> tuple[str, Any]:
-    """Accept tagged ``{Name: payload}`` or explicit ``{type, input}`` forms."""
-    if not isinstance(obj, dict):
-        raise ValueError(f"transformation must be an object, got {obj!r}")
-
-    if "type" in obj:
-        tag = obj["type"]
-        if not isinstance(tag, str):
-            raise ValueError(f"transformation type must be a string, got {tag!r}")
-        if "input" in obj:
-            return tag, obj["input"]
-        if "inputs" in obj:
-            return tag, obj["inputs"]
-        # Remaining keys are treated as the structured payload (minus type).
-        return tag, {k: v for k, v in obj.items() if k != "type"}
-
-    return _require_single_tag(obj, "transformation")
-
 def structure_transformation(obj: Any, _type: type) -> Transformation:
-    tag, payload = _parse_transformation_tag(obj)
+    tag, inputs = _require_single_tag(obj, "transformation")
     try:
         cls = TRANSFORMATION_REGISTRY[tag]
     except KeyError as exc:
         known = ", ".join(sorted(TRANSFORMATION_REGISTRY)) or "(none)"
         raise ValueError(f"unknown transformation {tag!r}; registered: {known}") from exc
+    if not isinstance(inputs, list):
+        raise ValueError(f"transformation {tag!r} inputs must be a list, got {inputs!r}")
+    for wire in inputs:
+        if isinstance(wire, bool) or not isinstance(wire, (str, int)):
+            raise ValueError(f"wire reference must be a string or integer, got {wire!r}")
+    cls.check_arity(len(inputs))
+    return cls(inputs=list(inputs))
 
-    # List payload is the common skeleton form.
-    # A dict payload is allowed for future per-transform fields.
-    if isinstance(payload, list):
-        data: dict[str, Any] = {"inputs": payload}
-    elif isinstance(payload, dict):
-        data = dict(payload)
-        if "input" in data and "inputs" not in data:
-            data["inputs"] = data.pop("input")
-    else:
-        raise ValueError(f"transformation {tag!r} payload must be a list or object, got {payload!r}")
-    return _structure_concrete(data, cls)
+def unstructure_transformation(obj: Transformation) -> dict[str, list[str | int]]:
+    return {type(obj).__transformation_name__: list(obj.inputs)}
 
-def unstructure_transformation(obj: Transformation) -> dict[str, Any]:
-    """Emit the explicit ``{type, input}`` form used in the source."""
-    cls = type(obj)
-    return {
-        "type": cls.__transformation_name__,
-        "input": converter.unstructure(obj.inputs),
-    }
-
-# Exact base types only — concrete subclasses structure via _structure_concrete.
 converter.register_structure_hook_func(lambda t: t is FeatureSpec, structure_feature)
 converter.register_structure_hook_func(lambda t: t is Transformation, structure_transformation)
 
-def structure_arrangement(obj: Any, _type: type) -> Arrangement:
-    """Tagged arrangement union (``arrangement.grid``, ``arrangement.free``, …)."""
+def structure_layout(obj: Any, _type: type) -> LayoutSpec:
     feat = structure_feature(obj, FeatureSpec)
-    if type(feat).__feature_family__ != "arrangement":
+    if type(feat).__feature_family__ != "layout":
         raise ValueError(
-            f"expected an arrangement feature, got {type(feat).__feature_name__}"
+            f"expected a layout feature, got {type(feat).__feature_name__}"
         )
-    assert isinstance(feat, Arrangement)
+    assert isinstance(feat, LayoutSpec)
     return feat
 
-def structure_object(obj: Any, _type: type) -> Object:
+def structure_pattern(obj: Any, _type: type) -> PatternSpec:
+    if not isinstance(obj, dict) or len(obj) != 1:
+        return _structure_concrete(obj, PatternSpec)
+    tag = next(iter(obj))
+    if not isinstance(tag, str) or not tag.startswith("pattern."):
+        return _structure_concrete(obj, PatternSpec)
+    feat = structure_feature(obj, FeatureSpec)
+    if type(feat).__feature_family__ != "pattern":
+        raise ValueError(f"expected a pattern feature, got {type(feat).__feature_name__}")
+    assert isinstance(feat, PatternSpec)
+    return feat
+
+def structure_object(obj: Any, _type: type) -> ObjectSpec:
     """Tagged object union (``object.sprite``, ``object.group``, …)."""
     feat = structure_feature(obj, FeatureSpec)
     if type(feat).__feature_family__ != "object":
         raise ValueError(f"expected an object feature, got {type(feat).__feature_name__}")
-    assert isinstance(feat, Object)
+    assert isinstance(feat, ObjectSpec)
     return feat
 
-def _is_object_list(t: Any) -> bool:
-    return get_origin(t) is list and get_args(t) == (Object,)
+def _is_pool_item_list(t: Any) -> bool:
+    return get_origin(t) is list and get_args(t) == (PoolItem,)
 
-def structure_object_list(obj: Any, _type: type) -> list[Object]:
+def structure_pool_item_list(obj: Any, _type: type) -> list[PoolItem]:
     if not isinstance(obj, list):
         raise ValueError(f"object pool must be a list, got {obj!r}")
-    return [structure_object(item, Object) for item in obj]
+    return [structure_pool_item(item, PoolItem) for item in obj]
 
-converter.register_structure_hook_func(lambda t: t is Arrangement, structure_arrangement)
-converter.register_structure_hook_func(lambda t: t is Object, structure_object)
-converter.register_structure_hook_func(_is_object_list, structure_object_list)
+def structure_pool_item(obj: Any, _type: type) -> PoolItem:
+    if not isinstance(obj, dict):
+        raise ValueError(f"pool item must be an object, got {obj!r}")
+    data = dict(obj)
+    variants = data.pop("variants", None)
+    if variants is not None and (isinstance(variants, bool) or not isinstance(variants, int)):
+        raise ValueError(f"pool item variants must be an integer or null, got {variants!r}")
+    return PoolItem(object=structure_object(data, ObjectSpec), variants=variants)
+
+converter.register_structure_hook_func(lambda t: t is LayoutSpec, structure_layout)
+converter.register_structure_hook_func(lambda t: t is PatternSpec, structure_pattern)
+converter.register_structure_hook_func(lambda t: t is ObjectSpec, structure_object)
+converter.register_structure_hook(PoolItem, structure_pool_item)
+converter.register_structure_hook_func(_is_pool_item_list, structure_pool_item_list)
 
 converter.register_unstructure_hook_func(
     lambda cls: isinstance(cls, type) and issubclass(cls, FeatureSpec),
@@ -333,14 +344,6 @@ converter.register_unstructure_hook_func(
     lambda cls: isinstance(cls, type) and issubclass(cls, Transformation),
     unstructure_transformation,
 )
-
-def _structure_wire_ref(value: Any, _type: type) -> WireRef:
-    if isinstance(value, (str, int)) and not isinstance(value, bool):
-        return value
-    raise ValueError(f"wire ref must be str or int, got {value!r}")
-
-converter.register_structure_hook(WireRef, _structure_wire_ref)
-
 def _is_int_int_dict(t: Any) -> bool:
     return get_origin(t) is dict and get_args(t) == (int, int)
 
@@ -361,28 +364,34 @@ def _structure_int_int_dict(obj: Any, _type: type) -> dict[int, int]:
 
 converter.register_structure_hook_func(_is_int_int_dict, _structure_int_int_dict)
 
-converter.register_structure_hook(Puzzle, make_dict_structure_fn(Puzzle, converter))
-converter.register_unstructure_hook(
-    Puzzle,
-    make_dict_unstructure_fn(
-        Puzzle,
-        converter,
-        palette=override(omit_if_default=True),
-    ),
-)
-
-def structure_source(obj: Any, *, validate: bool = True) -> PuzzleSource:
+def structure_cache_item(obj: Any, _type: type) -> CacheItem:
     if not isinstance(obj, dict):
-        raise ValueError(f"source must be an object, got {type(obj).__name__}")
-    source = {puzzle_id: converter.structure(raw, Puzzle) for puzzle_id, raw in obj.items()}
-    if validate:
-        for puzzle_id, puzzle in source.items():
-            try:
-                puzzle.validate()
-            except SpecError as exc:
-                raise SpecError(f"puzzle {puzzle_id}: {exc}") from exc
-    return source
+        raise ValueError(f"cache item must be an object, got {obj!r}")
+    data = dict(obj)
+    scope = data.pop("scope", "puzzle")
+    if scope not in ("puzzle", "sample"):
+        raise ValueError(f"cache item scope must be 'puzzle' or 'sample', got {scope!r}")
+    return CacheItem(feature=structure_feature(data, FeatureSpec), scope=scope)
 
-def load_source(path: Union[str, Path], *, validate: bool = True) -> PuzzleSource:
+converter.register_structure_hook(
+    PaletteSpec,
+    lambda obj, _type: PaletteSpec(fixed=_structure_int_int_dict(obj, dict[int, int])),
+)
+converter.register_structure_hook(CacheItem, structure_cache_item)
+converter.register_structure_hook(PuzzleSpec, make_dict_structure_fn(PuzzleSpec, converter))
+
+def structure_puzzle(obj: Any) -> PuzzleSpec:
+    if not isinstance(obj, dict):
+        raise ValueError(f"puzzle must be an object, got {type(obj).__name__}")
+    return converter.structure(obj, PuzzleSpec)
+
+def load_puzzle(path: Union[str, Path], puzzle_id: str) -> PuzzleSpec:
     with Path(path).open() as f:
-        return structure_source(json.load(f), validate=validate)
+        source = json.load(f)
+    if not isinstance(source, dict):
+        raise ValueError(f"source must be an object, got {type(source).__name__}")
+    try:
+        puzzle = source[puzzle_id]
+    except KeyError as exc:
+        raise KeyError(f"unknown puzzle id {puzzle_id!r}") from exc
+    return structure_puzzle(puzzle)

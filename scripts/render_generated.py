@@ -13,8 +13,8 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
+from sparc_agi import structure_puzzle
 from sparc_agi.plotting import render_generated_puzzle
-from sparc_agi.parser import load_source
 
 ROOT = Path(__file__).resolve().parents[1]
 TEMP = ROOT / "temp"
@@ -75,13 +75,14 @@ def main(argv: list[str] | None = None) -> int:
         source_path = _resolve_path(Path(payload["source"]))
     else:
         source_path = DEFAULT_SOURCE
-    source = load_source(source_path) if source_path.exists() else {}
+    source = json.loads(source_path.read_text()) if source_path.exists() else {}
 
     TEMP.mkdir(parents=True, exist_ok=True)
     stem = json_path.stem
     written: list[Path] = []
     for puzzle_id in ids:
-        cache_features = source[puzzle_id].cache if puzzle_id in source else {}
+        puzzle = structure_puzzle(source[puzzle_id]) if puzzle_id in source else None
+        cache_features = puzzle.cache if puzzle is not None else {}
         fig = render_generated_puzzle(
             puzzle_id,
             puzzles[puzzle_id],

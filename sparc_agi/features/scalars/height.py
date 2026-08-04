@@ -5,5 +5,5 @@ from sparc_agi.features.scalars.base import ScalarSpec
 
 @register_feature("height")
 @dataclass
-class Height(ScalarSpec):
+class HeightSpec(ScalarSpec):
     pass

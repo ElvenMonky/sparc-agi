@@ -1,13 +1,15 @@
 import random
 from dataclasses import dataclass
 
-from sparc_agi.features.scalars.height import Height
-from sparc_agi.features.scalars.width import Width
+from sparc_agi.features.scalars.height import HeightSpec
+from sparc_agi.features.scalars.width import WidthSpec
+from sparc_agi.range import Range
 
 @dataclass
 class Size:
-    width: Width
-    height: Height
+    width: WidthSpec
+    height: HeightSpec
+    ratio: Range | None = None
 
     def describe(self) -> str:
         w, h = self.width.value, self.height.value
