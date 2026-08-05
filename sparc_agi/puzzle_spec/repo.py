@@ -12,12 +12,6 @@ from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.spec import PuzzleSpec
 
-def _subclasses(cls: type) -> set[type]:
-    types = {cls}
-    for sub in cls.__subclasses__():
-        types |= _subclasses(sub)
-    return types
-
 def _input_spec_structure_hook(spec_cls: type, converter: cattrs.Converter):
     def hook(value: object, typ: type) -> object:
         return spec_cls.structure(value, typ, converter)
@@ -33,7 +27,7 @@ def _register_hooks(converter: cattrs.Converter) -> None:
         converter.register_structure_hook(cls, cls.structure)
         converter.register_unstructure_hook(cls, cls.unstructure)
 
-    for cls in _subclasses(InputSpec):
+    for cls in InputSpec.__subclasses__():
         converter.register_structure_hook(cls, _input_spec_structure_hook(cls, converter))
         converter.register_unstructure_hook(cls, _input_spec_unstructure_hook(cls, converter))
 
