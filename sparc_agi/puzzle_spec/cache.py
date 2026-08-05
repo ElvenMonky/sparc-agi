@@ -1,14 +1,16 @@
 from dataclasses import dataclass, fields
-from typing import Any, Self
+from typing import Any, ClassVar, Self
 
 import cattrs
 
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
+from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.range import Range
 
 @dataclass
 class InputSpec:
-    value: FeatureSpec
+    VALUE_TYPE: ClassVar[type[FeatureSpec]] = ObjectSpec
+    value: ObjectSpec
 
     @classmethod
     def structure(cls, value: Any, _: type, converter: cattrs.Converter) -> Self:
@@ -27,8 +29,8 @@ class InputSpec:
             raise ValueError(f"input must be a single-key tagged object, got {body!r}")
         tag = body[0]
         feature_cls = FeatureSpec.REGISTRY.get(tag)
-        if feature_cls is None:
-            raise ValueError(f"unknown feature {tag!r}")
+        if feature_cls is None or not issubclass(feature_cls, cls.VALUE_TYPE):
+            raise ValueError(f"unknown or incompatible feature {tag!r}")
         return cls(value=converter.structure(value[tag], feature_cls), **kwargs)
 
     @classmethod
@@ -44,6 +46,8 @@ class InputSpec:
 
 @dataclass
 class CacheItemSpec(InputSpec):
+    VALUE_TYPE = FeatureSpec
+    value: FeatureSpec
     scope: str | None = None
 
 @dataclass

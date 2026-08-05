@@ -27,7 +27,7 @@ def _register_hooks(converter: cattrs.Converter) -> None:
         converter.register_structure_hook(cls, cls.structure)
         converter.register_unstructure_hook(cls, cls.unstructure)
 
-    for cls in InputSpec.__subclasses__():
+    for cls in (InputSpec, *InputSpec.__subclasses__()):
         converter.register_structure_hook(cls, _input_spec_structure_hook(cls, converter))
         converter.register_unstructure_hook(cls, _input_spec_unstructure_hook(cls, converter))
 
