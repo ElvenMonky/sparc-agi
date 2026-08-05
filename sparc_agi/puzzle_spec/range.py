@@ -4,16 +4,20 @@ from typing import Any, Self
 
 @dataclass(frozen=True)
 class Range:
-    lo: int
-    hi: int
+    lo: int = 0
+    hi: int | None = None
     step: int = 1
+
+    def __post_init__(self) -> None:
+        if self.hi is None:
+            object.__setattr__(self, "hi", self.lo)
 
     @classmethod
     def structure(cls, value: Any, _: type) -> Self:
         if isinstance(value, bool) or not isinstance(value, (int, list)):
             raise ValueError(f"range must be an integer or list, got {value!r}")
         if isinstance(value, int):
-            return cls(value, value)
+            return cls(value)
         if not 1 <= len(value) <= 3 or not all(isinstance(item, int) for item in value):
             raise ValueError(f"range list must contain 1 to 3 integers, got {value!r}")
         lo = value[0]

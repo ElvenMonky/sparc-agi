@@ -1,8 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from sparc_agi.puzzle_spec.cache import CacheItem
-from sparc_agi.puzzle_spec.features.base import ObjectSpec
+from sparc_agi.puzzle_spec.cache import CacheItemSpec, InputSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 
@@ -13,8 +12,8 @@ class SamplesSpec:
 
 @dataclass
 class PuzzleSpec:
-    input: ObjectSpec
+    input: InputSpec
     samples: SamplesSpec
     steps: list[dict[str, list[Any]]]
-    cache: dict[str, CacheItem] = field(default_factory=dict)
+    cache: dict[str, CacheItemSpec] = field(default_factory=dict)
     palette: PaletteSpec = field(default_factory=PaletteSpec)

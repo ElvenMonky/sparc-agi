@@ -5,29 +5,52 @@ from typing import ClassVar, Self
 
 import cattrs
 
-from sparc_agi.puzzle_spec.cache import CacheItem
+import sparc_agi.puzzle_spec.features  # noqa: F401
+from sparc_agi.puzzle_spec.cache import InputSpec
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.spec import PuzzleSpec
 
+def _subclasses(cls: type) -> set[type]:
+    types = {cls}
+    for sub in cls.__subclasses__():
+        types |= _subclasses(sub)
+    return types
+
+def _input_spec_structure_hook(spec_cls: type, converter: cattrs.Converter):
+    def hook(value: object, typ: type) -> object:
+        return spec_cls.structure(value, typ, converter)
+    return hook
+
+def _input_spec_unstructure_hook(spec_cls: type, converter: cattrs.Converter):
+    def hook(inst: object) -> object:
+        return spec_cls.unstructure(inst, converter)
+    return hook
+
+def _register_hooks(converter: cattrs.Converter) -> None:
+    for cls in (Range, PaletteSpec):
+        converter.register_structure_hook(cls, cls.structure)
+        converter.register_unstructure_hook(cls, cls.unstructure)
+
+    for cls in _subclasses(InputSpec):
+        converter.register_structure_hook(cls, _input_spec_structure_hook(cls, converter))
+        converter.register_unstructure_hook(cls, _input_spec_unstructure_hook(cls, converter))
+
+    for cls in set(FeatureSpec.REGISTRY.values()):
+        if "structure" in cls.__dict__:
+            converter.register_structure_hook(cls, cls.structure)
+        if "unstructure" in cls.__dict__:
+            converter.register_unstructure_hook(cls, cls.unstructure)
+
+def _make_converter() -> cattrs.Converter:
+    converter = cattrs.Converter(omit_if_default=True)
+    _register_hooks(converter)
+    return converter
+
 @dataclass
 class PuzzleSpecRepository:
-    converter: ClassVar[cattrs.Converter] = cattrs.Converter(omit_if_default=True)
-    converter.register_structure_hook(Range, Range.structure)
-    converter.register_unstructure_hook(Range, Range.unstructure)
-    converter.register_structure_hook(PaletteSpec, PaletteSpec.structure)
-    converter.register_unstructure_hook(PaletteSpec, PaletteSpec.unstructure)
-    converter.register_structure_hook(CacheItem, CacheItem.structure)
-    converter.register_unstructure_hook(CacheItem, CacheItem.unstructure)
-    converter.register_structure_hook_func(
-        lambda t: isinstance(t, type) and issubclass(t, FeatureSpec),
-        FeatureSpec.structure,
-    )
-    converter.register_unstructure_hook_func(
-        lambda t: isinstance(t, type) and issubclass(t, FeatureSpec),
-        FeatureSpec.unstructure,
-    )
+    converter: ClassVar[cattrs.Converter] = _make_converter()
     puzzles: dict[str, PuzzleSpec] = field(default_factory=dict)
 
     @classmethod
