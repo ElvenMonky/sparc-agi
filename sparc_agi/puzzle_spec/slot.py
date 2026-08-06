@@ -1,16 +1,24 @@
 from dataclasses import dataclass, fields
-from typing import Any, ClassVar, Self
+from typing import Any, Generic, Self, get_args, get_origin
 
 import cattrs
 
-from sparc_agi.puzzle_spec.features.base import FeatureSpec
+from sparc_agi.puzzle_spec.features.base import F, FeatureSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.range import Range
 
 @dataclass
-class InputSpec:
-    VALUE_TYPE: ClassVar[type[FeatureSpec]] = ObjectSpec
-    value: ObjectSpec
+class FeatureSlotSpec(Generic[F]):
+    value: F
+
+    @classmethod
+    def _value_type(cls) -> type[FeatureSpec]:
+        for base in cls.__orig_bases__:
+            if get_origin(base) is FeatureSlotSpec:
+                value_type = get_args(base)[0]
+                if isinstance(value_type, type):
+                    return value_type
+        raise TypeError(f"{cls.__name__} must specialize FeatureSlotSpec[FeatureSpec]")
 
     @classmethod
     def structure(cls, value: Any, _: type, converter: cattrs.Converter) -> Self:
@@ -26,15 +34,15 @@ class InputSpec:
             kwargs[field.name] = None if raw is None else converter.structure(raw, field.type)
         body = [key for key in value if key not in kwargs]
         if len(body) != 1:
-            raise ValueError(f"input must be a single-key tagged object, got {body!r}")
+            raise ValueError(f"slot must be a single-key tagged object, got {body!r}")
         tag = body[0]
         feature_cls = FeatureSpec.REGISTRY.get(tag)
-        if feature_cls is None or not issubclass(feature_cls, cls.VALUE_TYPE):
+        if feature_cls is None or not issubclass(feature_cls, cls._value_type()):
             raise ValueError(f"unknown or incompatible feature {tag!r}")
         return cls(value=converter.structure(value[tag], feature_cls), **kwargs)
 
     @classmethod
-    def unstructure(cls, inst: InputSpec, converter: cattrs.Converter) -> dict[str, Any]:
+    def unstructure(cls, inst: Self, converter: cattrs.Converter) -> dict[str, Any]:
         payload = {type(inst.value).tag(): converter.unstructure(inst.value)}
         for field in fields(cls):
             if field.name == "value":
@@ -45,11 +53,13 @@ class InputSpec:
         return payload
 
 @dataclass
-class CacheItemSpec(InputSpec):
-    VALUE_TYPE = FeatureSpec
-    value: FeatureSpec
+class InputSpec(FeatureSlotSpec[ObjectSpec]):
+    pass
+
+@dataclass
+class CacheItemSpec(FeatureSlotSpec[FeatureSpec]):
     scope: str | None = None
 
 @dataclass
-class PoolItemSpec(InputSpec):
-    variants: Range | None = None
+class PoolItemSpec(FeatureSlotSpec[ObjectSpec]):
+    variants: Range[1, MAX_COUNT] | None = None

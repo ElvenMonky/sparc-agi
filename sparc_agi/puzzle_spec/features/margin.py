@@ -5,22 +5,26 @@ from typing import Any
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature
 from sparc_agi.puzzle_spec.range import Range
 
+from sparc_agi.consts import MAX_SIZE
+
+MARGIN_RANGE = Range[-MAX_SIZE//2, MAX_SIZE//2]
+
 @register_feature("margin")
 @dataclass
 class MarginSpec(FeatureSpec):
-    left: Range = field(default_factory=Range)
-    right: Range = field(default_factory=Range)
-    top: Range = field(default_factory=Range)
-    bottom: Range = field(default_factory=Range)
-    value: InitVar[Range | None] = None
-    x: InitVar[Range | None] = None
-    y: InitVar[Range | None] = None
+    left: MARGIN_RANGE = field(default_factory=Range)
+    right: MARGIN_RANGE = field(default_factory=Range)
+    top: MARGIN_RANGE = field(default_factory=Range)
+    bottom: MARGIN_RANGE = field(default_factory=Range)
+    value: InitVar[MARGIN_RANGE | None] = None
+    x: InitVar[MARGIN_RANGE | None] = None
+    y: InitVar[MARGIN_RANGE | None] = None
 
     def __post_init__(
         self,
-        value: Range | None,
-        x: Range | None,
-        y: Range | None,
+        value: MARGIN_RANGE | None,
+        x: MARGIN_RANGE | None,
+        y: MARGIN_RANGE | None,
     ) -> None:
         if value is not None:
             self.left = self.right = self.top = self.bottom = value

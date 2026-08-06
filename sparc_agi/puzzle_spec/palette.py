@@ -2,7 +2,7 @@ import random
 from dataclasses import dataclass, field
 from typing import Any, Self
 
-COLOR_COUNT = 10
+from sparc_agi.consts import MAX_COLOR
 
 @dataclass(frozen=True)
 class PaletteSpec:
@@ -11,10 +11,10 @@ class PaletteSpec:
     def __post_init__(self) -> None:
         values: set[int] = set()
         for key, value in self.fixed.items():
-            if not isinstance(key, int) or not 0 <= key < COLOR_COUNT:
-                raise ValueError(f"palette key must be an integer in 0..{COLOR_COUNT - 1}, got {key!r}")
-            if not isinstance(value, int) or not 0 <= value < COLOR_COUNT:
-                raise ValueError(f"palette value must be an integer in 0..{COLOR_COUNT - 1}, got {value!r}")
+            if not isinstance(key, int) or not 0 <= key <= MAX_COLOR:
+                raise ValueError(f"palette key must be an integer in 0..{MAX_COLOR}, got {key!r}")
+            if not isinstance(value, int) or not 0 <= value <= MAX_COLOR:
+                raise ValueError(f"palette value must be an integer in 0..{MAX_COLOR}, got {value!r}")
             if value in values:
                 raise ValueError(f"palette colors must be unique, got {dict(self.fixed)!r}")
             values.add(value)
@@ -38,10 +38,10 @@ class PaletteSpec:
         return {str(key): value for key, value in self.fixed.items()}
 
     def instantiate(self, rng: random.Random) -> tuple[int, int, int, int, int, int, int, int, int, int]:
-        free = [color for color in range(COLOR_COUNT) if color not in self.fixed.values()]
+        free = [color for color in range(MAX_COLOR + 1) if color not in self.fixed.values()]
         rng.shuffle(free)
         colors = tuple(
             self.fixed[key] if key in self.fixed else free.pop()
-            for key in range(COLOR_COUNT)
+            for key in range(MAX_COLOR + 1)
         )
         return colors

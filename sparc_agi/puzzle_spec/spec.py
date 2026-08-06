@@ -1,14 +1,14 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from sparc_agi.puzzle_spec.cache import CacheItemSpec, InputSpec
+from sparc_agi.puzzle_spec.slot import CacheItemSpec, InputSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 
 @dataclass
 class SamplesSpec:
-    train: Range
-    test: Range
+    train: Range[2, 5]
+    test: Range[1, 3]
 
 @dataclass
 class PuzzleSpec:
