@@ -8,6 +8,7 @@ import cattrs
 import sparc_agi.puzzle_spec.features  # noqa: F401
 from sparc_agi.puzzle_spec.cache import InputSpec
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
+from sparc_agi.puzzle_spec.features.scalar import ScalarSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.spec import PuzzleSpec
@@ -22,6 +23,22 @@ def _input_spec_unstructure_hook(spec_cls: type, converter: cattrs.Converter):
         return spec_cls.unstructure(inst, converter)
     return hook
 
+def _structure_feature(value: object, cls: type, converter: cattrs.Converter) -> object:
+    if isinstance(value, cls):
+        return value
+    if isinstance(value, (int, list, Range)):
+        return cls(value=converter.structure(value, Range))
+    if not isinstance(value, dict):
+        raise ValueError(f"{cls.__name__} must be a range or object, got {value!r}")
+    if not value:
+        return cls()
+    if set(value) <= {"x", "y"}:
+        return cls(
+            x=converter.structure(value["x"], Range) if "x" in value else None,
+            y=converter.structure(value["y"], Range) if "y" in value else None,
+        )
+    return converter.structure_attrs_fromdict(value, cls)
+
 def _register_hooks(converter: cattrs.Converter) -> None:
     for cls in (Range, PaletteSpec):
         converter.register_structure_hook(cls, cls.structure)
@@ -31,11 +48,16 @@ def _register_hooks(converter: cattrs.Converter) -> None:
         converter.register_structure_hook(cls, _input_spec_structure_hook(cls, converter))
         converter.register_unstructure_hook(cls, _input_spec_unstructure_hook(cls, converter))
 
+    converter.register_structure_hook_func(
+        lambda t: isinstance(t, type) and issubclass(t, FeatureSpec),
+        lambda value, cls: _structure_feature(value, cls, converter),
+    )
+
     for cls in set(FeatureSpec.REGISTRY.values()):
-        if "structure" in cls.__dict__:
-            converter.register_structure_hook(cls, cls.structure)
         if "unstructure" in cls.__dict__:
             converter.register_unstructure_hook(cls, cls.unstructure)
+        elif issubclass(cls, ScalarSpec):
+            converter.register_unstructure_hook(cls, ScalarSpec.unstructure)
 
 def _make_converter() -> cattrs.Converter:
     converter = cattrs.Converter(omit_if_default=True)

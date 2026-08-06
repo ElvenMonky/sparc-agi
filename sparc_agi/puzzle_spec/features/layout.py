@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature
-from sparc_agi.puzzle_spec.range import Range
+from sparc_agi.puzzle_spec.features.scalar import HeightSpec, WidthSpec
 
 @register_feature("size")
 @dataclass
 class SizeSpec(FeatureSpec):
-    width: Range | None = None
-    height: Range | None = None
+    width: WidthSpec | None = None
+    height: HeightSpec | None = None
 
 @register_feature("layout")
 @dataclass

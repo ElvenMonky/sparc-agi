@@ -28,8 +28,3 @@ def register_feature(name: str) -> Callable[[type[F]], type[F]]:
 @dataclass
 class FilterSpec(FeatureSpec):
     pass
-
-@register_feature("color")
-@dataclass
-class ColorSpec(FeatureSpec):
-    pass
