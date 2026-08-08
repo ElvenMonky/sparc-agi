@@ -3,10 +3,7 @@ from typing import Any, Generic, Self, get_args, get_origin
 
 import cattrs
 
-from sparc_agi.consts import MAX_COUNT
 from sparc_agi.puzzle_spec.features.base import F, FeatureSpec
-from sparc_agi.puzzle_spec.features.object import ObjectSpec
-from sparc_agi.puzzle_spec.range import Range
 
 @dataclass
 class FeatureSlotSpec(Generic[F]):
@@ -54,13 +51,5 @@ class FeatureSlotSpec(Generic[F]):
         return payload
 
 @dataclass
-class InputSpec(FeatureSlotSpec[ObjectSpec]):
-    pass
-
-@dataclass
 class CacheItemSpec(FeatureSlotSpec[FeatureSpec]):
     scope: str | None = None
-
-@dataclass
-class PoolItemSpec(FeatureSlotSpec[ObjectSpec]):
-    variants: Range[1, MAX_COUNT] | None = None

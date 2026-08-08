@@ -1,7 +1,7 @@
 import random
 from dataclasses import dataclass
 
-from sparc_agi.consts import MAX_COLOR, MAX_SIZE
+from sparc_agi.consts import MAX_COLOR, MAX_COUNT, MAX_ORIENTATION, MAX_SIZE
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait
 from sparc_agi.puzzle_spec.range import Range
 
@@ -20,6 +20,11 @@ class ScalarSpec(FeatureSpec):
 class ColorSpec(ScalarSpec):
     value: Range[0, MAX_COLOR] = trait(default_factory=Range)
 
+@register_feature("count")
+@dataclass
+class CountSpec(ScalarSpec):
+    value: Range[1, MAX_COUNT] = trait(default_factory=Range)
+
 @register_feature("width")
 @dataclass
 class WidthSpec(ScalarSpec):
@@ -29,3 +34,8 @@ class WidthSpec(ScalarSpec):
 @dataclass
 class HeightSpec(ScalarSpec):
     value: Range[1, MAX_SIZE] = trait(default_factory=Range)
+
+@register_feature("orientation")
+@dataclass
+class OrientationSpec(ScalarSpec):
+    value: Range[0, MAX_ORIENTATION] = trait(default_factory=Range)
