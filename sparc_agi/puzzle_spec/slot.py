@@ -3,6 +3,7 @@ from typing import Any, Generic, Self, get_args, get_origin
 
 import cattrs
 
+from sparc_agi.consts import MAX_COUNT
 from sparc_agi.puzzle_spec.features.base import F, FeatureSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.range import Range

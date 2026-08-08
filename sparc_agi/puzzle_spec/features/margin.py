@@ -1,21 +1,20 @@
 import random
-from dataclasses import InitVar, dataclass, field
+from dataclasses import InitVar, dataclass
 from typing import Any
 
-from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature
-from sparc_agi.puzzle_spec.range import Range
-
 from sparc_agi.consts import MAX_SIZE
+from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait
+from sparc_agi.puzzle_spec.range import Range
 
 MARGIN_RANGE = Range[-MAX_SIZE//2, MAX_SIZE//2]
 
 @register_feature("margin")
 @dataclass
 class MarginSpec(FeatureSpec):
-    left: MARGIN_RANGE = field(default_factory=Range)
-    right: MARGIN_RANGE = field(default_factory=Range)
-    top: MARGIN_RANGE = field(default_factory=Range)
-    bottom: MARGIN_RANGE = field(default_factory=Range)
+    left: MARGIN_RANGE = trait(default_factory=Range)
+    right: MARGIN_RANGE = trait(default_factory=Range)
+    top: MARGIN_RANGE = trait(default_factory=Range)
+    bottom: MARGIN_RANGE = trait(default_factory=Range)
     value: InitVar[MARGIN_RANGE | None] = None
     x: InitVar[MARGIN_RANGE | None] = None
     y: InitVar[MARGIN_RANGE | None] = None
