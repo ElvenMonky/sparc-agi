@@ -7,6 +7,7 @@ from sparc_agi.puzzle_spec.features.layout import (
     DraftSpec,
     GridArrangementSpec,
     LayoutSpec,
+    OriginSpec,
     PositionSpec,
     SizeSpec,
     TreeArrangementSpec,
@@ -21,7 +22,7 @@ from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 class ObjectSpec(FeatureSpec):
     color: ColorSpec = trait(default_factory=ColorSpec)
     margin: MarginSpec = trait(default_factory=MarginSpec)
-    origin: PositionSpec | None = trait(default=None)
+    origin: OriginSpec | None = trait(default=None)
     size: SizeSpec = trait(default_factory=SizeSpec)
 
 @dataclass
@@ -32,7 +33,7 @@ class PoolItemSpec(FeatureSlotSpec[ObjectSpec]):
 @register_feature("object.point")
 @dataclass
 class PointSpec(ObjectSpec):
-    origin: PositionSpec = trait(access=Access.GET, default=None)
+    origin: OriginSpec | None = trait(access=Access.GET, default=None)
     size: SizeSpec = trait(
         access=Access.GET,
         default_factory=lambda: SizeSpec(width=WidthSpec(Range(1)), height=HeightSpec(Range(1))),
