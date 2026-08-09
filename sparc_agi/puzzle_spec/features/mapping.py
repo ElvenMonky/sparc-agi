@@ -1,13 +1,15 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from sparc_agi.consts import MAX_COUNT
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature
+from sparc_agi.puzzle_spec.range import Range
 
 @register_feature("mapping")
 @dataclass
 class MappingSpec(FeatureSpec):
     key: str
-    variants: Range[1, MAX_COUNT] | None = field(default=None)
     value: Range
+    variants: Range[1, MAX_COUNT] | None = field(default=None)
 
 @register_feature("mapping.color")
 @dataclass

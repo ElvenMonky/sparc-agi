@@ -51,6 +51,26 @@ def _structure_feature(value: object, cls: type, converter: cattrs.Converter) ->
         )
     return converter.structure_attrs_fromdict(value, cls)
 
+def _unstructure_feature(inst: FeatureSpec, converter: cattrs.Converter) -> object:
+    cls = type(inst)
+    custom = cls.__dict__.get("unstructure")
+    if custom is not None and custom is not FeatureSpec.unstructure:
+        if isinstance(custom, classmethod):
+            return custom.__func__(cls, inst, converter)
+        return inst.unstructure()
+    return cls.unstructure(inst, converter)
+
+def _all_feature_types() -> set[type[FeatureSpec]]:
+    types: set[type[FeatureSpec]] = set(FeatureSpec.REGISTRY.values())
+    queue = list(types)
+    while queue:
+        cls = queue.pop()
+        for sub in cls.__subclasses__():
+            if issubclass(sub, FeatureSpec) and sub not in types:
+                types.add(sub)
+                queue.append(sub)
+    return types
+
 def _register_hooks(converter: cattrs.Converter) -> None:
     for cls in (PaletteSpec,):
         converter.register_structure_hook(cls, cls.structure)
@@ -68,11 +88,14 @@ def _register_hooks(converter: cattrs.Converter) -> None:
         lambda value, cls: _structure_feature(value, cls, converter),
     )
 
-    for cls in set(FeatureSpec.REGISTRY.values()):
-        if "unstructure" in cls.__dict__:
-            converter.register_unstructure_hook(cls, cls.unstructure)
-        elif issubclass(cls, ScalarSpec):
+    for cls in _all_feature_types():
+        if issubclass(cls, ScalarSpec):
             converter.register_unstructure_hook(cls, ScalarSpec.unstructure)
+        else:
+            converter.register_unstructure_hook(
+                cls,
+                lambda inst, conv=converter: _unstructure_feature(inst, conv),
+            )
 
 def _make_converter() -> cattrs.Converter:
     converter = cattrs.Converter(omit_if_default=True)

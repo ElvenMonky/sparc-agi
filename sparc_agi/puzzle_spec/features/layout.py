@@ -4,6 +4,7 @@ from sparc_agi.consts import MAX_SIZE
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait
 from sparc_agi.puzzle_spec.features.scalar import CountSpec, HeightSpec, OrientationSpec, WidthSpec
 from sparc_agi.puzzle_spec.range import Range
+from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 
 @register_feature("size")
 @dataclass

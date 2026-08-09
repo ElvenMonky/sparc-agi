@@ -1,16 +1,18 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from sparc_agi.consts import MAX_COUNT
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec, register_feature, trait
 from sparc_agi.puzzle_spec.features.cut import CutSpec
 from sparc_agi.puzzle_spec.features.layout import (
     DraftSpec,
+    GridArrangementSpec,
     LayoutSpec,
+    PositionSpec,
     SizeSpec,
     TreeArrangementSpec,
 )
 from sparc_agi.puzzle_spec.features.margin import MarginSpec
-from sparc_agi.puzzle_spec.features.scalar import ColorSpec, CountSpec, HeightSpec, WidthSpec
+from sparc_agi.puzzle_spec.features.scalar import ColorSpec, CountSpec, HeightSpec, OrientationSpec, WidthSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 
@@ -53,7 +55,7 @@ class RectangleSpec(GeometrySpec):
 
 @dataclass
 class BaseGroupSpec(ObjectSpec):
-    pool: list[PoolItemSpec] = field(default_factory=list)
+    pool: list[PoolItemSpec] = trait(access=Access.SET, default_factory=list)
 
 @register_feature("object.group")
 @dataclass
@@ -77,9 +79,7 @@ class GlyphSpec(GridSpec):
         access=Access.GET,
         default_factory=lambda: LayoutSpec(count=CountSpec(Range(2, 8))),
     )
-    pool: list[PoolItemSpec] = field(
-        default_factory=list
-    )
+    pool: list[PoolItemSpec] = trait(access=Access(0), default_factory=list)
 
     def __post_init__(self) -> None:
         self.layout.size = self.size
@@ -95,9 +95,7 @@ class SpriteSpec(GridSpec):
         access=Access.GET,
         default_factory=lambda: LayoutSpec(arrangement=FeatureSlotSpec(GridArrangementSpec())),
     )
-    pool: list[PoolItemSpec] = field(
-        default_factory=list
-    )
+    pool: list[PoolItemSpec] = trait(access=Access(0), default_factory=list)
 
     def __post_init__(self) -> None:
         self.layout.size = self.size

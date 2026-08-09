@@ -1,6 +1,8 @@
 from dataclasses import MISSING, dataclass, field, fields
 from enum import IntFlag
-from typing import Any, Callable, ClassVar, TypeVar
+from typing import Any, Callable, ClassVar, Self, TypeVar
+
+import cattrs
 
 F = TypeVar("F", bound="FeatureSpec")
 
@@ -62,6 +64,18 @@ class FeatureSpec:
         return frozenset(
             name for name, access in cls.trait_accesses().items() if access & Access.SET
         )
+
+    @classmethod
+    def unstructure(cls, inst: Self, converter: cattrs.Converter) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        for dc_field in fields(cls):
+            if not (cls.trait_access(dc_field.name) & Access.SET):
+                continue
+            val = getattr(inst, dc_field.name)
+            if val is None:
+                continue
+            payload[dc_field.name] = converter.unstructure(val)
+        return payload
 
 def register_feature(name: str) -> Callable[[type[F]], type[F]]:
     def decorator(cls: type[F]) -> type[F]:
