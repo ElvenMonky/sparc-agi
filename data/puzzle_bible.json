@@ -78,7 +78,7 @@
         "mapping.color": {
           "key": "layout",
           "variants": 3,
-          "color": [3, 5]
+          "value": [3, 5]
         }
       }
     },
@@ -191,7 +191,7 @@
         "mapping.color": {
           "key": "size.width",
           "variants": 3,
-          "color": [2, 4]
+          "value": [2, 4]
         }
       },
       "b": {

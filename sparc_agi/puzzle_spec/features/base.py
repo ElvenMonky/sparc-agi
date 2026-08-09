@@ -76,4 +76,5 @@ def register_feature(name: str) -> Callable[[type[F]], type[F]]:
 @register_feature("filter")
 @dataclass
 class FilterSpec(FeatureSpec):
-    pass
+    index: str = field(default_factory=lambda: "")
+    criteria: list[str] = field(default_factory=lambda: [])
