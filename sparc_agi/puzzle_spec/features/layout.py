@@ -29,6 +29,10 @@ class OriginSpec(PositionSpec):
 class ArrangementSpec(FeatureSpec):
     pass
 
+@dataclass
+class ArrangementSlotSpec(FeatureSlotSpec[ArrangementSpec]):
+    pass
+
 @register_feature("arrangement.flow")
 @dataclass
 class FlowArrangementSpec(ArrangementSpec):
@@ -59,6 +63,6 @@ class DraftSpec(FeatureSpec):
 @dataclass
 class LayoutSpec(FeatureSpec):
     count: CountSpec | None = trait(default=None)
-    arrangement: FeatureSlotSpec[ArrangementSpec] | None = trait(default=None)
+    arrangement: ArrangementSlotSpec | None = trait(default=None)
     size: SizeSpec | None = trait(default=None)
     pattern: DraftSpec | None = trait(default=None)

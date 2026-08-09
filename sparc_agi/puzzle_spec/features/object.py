@@ -1,9 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sparc_agi.consts import MAX_COUNT
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec, register_feature, trait
 from sparc_agi.puzzle_spec.features.cut import CutSpec
 from sparc_agi.puzzle_spec.features.layout import (
+    ArrangementSlotSpec,
     DraftSpec,
     GridArrangementSpec,
     LayoutSpec,
@@ -24,11 +25,11 @@ class ObjectSpec(FeatureSpec):
     margin: MarginSpec = trait(default_factory=MarginSpec)
     origin: OriginSpec | None = trait(default=None)
     size: SizeSpec = trait(default_factory=SizeSpec)
+    mapping: str | None = field(default=None)
 
 @dataclass
 class PoolItemSpec(FeatureSlotSpec[ObjectSpec]):
     variants: Range[1, MAX_COUNT] | None = None
-    mapping: str | None = None
 
 @register_feature("object.point")
 @dataclass
@@ -94,7 +95,7 @@ class GlyphSpec(GridSpec):
 class SpriteSpec(GridSpec):
     layout: LayoutSpec = trait(
         access=Access.GET,
-        default_factory=lambda: LayoutSpec(arrangement=FeatureSlotSpec(GridArrangementSpec())),
+        default_factory=lambda: LayoutSpec(arrangement=ArrangementSlotSpec(GridArrangementSpec())),
     )
     pool: list[PoolItemSpec] = trait(access=Access(0), default_factory=list)
 
@@ -110,7 +111,7 @@ class TreeStructureSpec(BaseGroupSpec):
     count: CountSpec = trait(default_factory=CountSpec)
     layout: LayoutSpec = trait(
         access=Access.GET,
-        default_factory=lambda: LayoutSpec(arrangement=FeatureSlotSpec(TreeArrangementSpec())),
+        default_factory=lambda: LayoutSpec(arrangement=ArrangementSlotSpec(TreeArrangementSpec())),
     )
 
     def __post_init__(self) -> None:
