@@ -3,7 +3,7 @@ from typing import Any, Generic, Self, get_args, get_origin
 
 import cattrs
 
-from sparc_agi.puzzle_spec.features.base import F, FeatureSpec
+from sparc_agi.puzzle_spec.features.base import F, FeatureSpec, _omit_if_default
 
 @dataclass
 class FeatureSlotSpec(Generic[F]):
@@ -46,8 +46,11 @@ class FeatureSlotSpec(Generic[F]):
             if field.name == "value":
                 continue
             val = getattr(inst, field.name)
-            if val is not None:
-                payload[field.name] = converter.unstructure(val)
+            if val is None:
+                continue
+            if _omit_if_default(converter, field, val):
+                continue
+            payload[field.name] = converter.unstructure(val)
         return payload
 
 @dataclass

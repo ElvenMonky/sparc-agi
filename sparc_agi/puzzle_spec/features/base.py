@@ -1,4 +1,4 @@
-from dataclasses import MISSING, dataclass, field, fields
+from dataclasses import MISSING, Field, dataclass, field, fields
 from enum import IntFlag
 from typing import Any, Callable, ClassVar, Self, TypeVar
 
@@ -27,6 +27,21 @@ def trait(
     if default_factory is not MISSING:
         return field(default_factory=default_factory, metadata=metadata, **kwargs)
     return field(metadata=metadata, **kwargs)
+
+def _field_default_value(dc_field: Field[Any]) -> Any:
+    if dc_field.default is not MISSING:
+        return dc_field.default
+    if dc_field.default_factory is not MISSING:
+        return dc_field.default_factory()
+    return MISSING
+
+def _omit_if_default(converter: cattrs.Converter, dc_field: Field[Any], val: Any) -> bool:
+    if not converter.omit_if_default:
+        return False
+    default = _field_default_value(dc_field)
+    if default is MISSING:
+        return False
+    return val == default
 
 @dataclass
 class FeatureSpec:
@@ -73,6 +88,8 @@ class FeatureSpec:
                 continue
             val = getattr(inst, dc_field.name)
             if val is None:
+                continue
+            if _omit_if_default(converter, dc_field, val):
                 continue
             payload[dc_field.name] = converter.unstructure(val)
         return payload
