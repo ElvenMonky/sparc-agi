@@ -13,6 +13,13 @@ class Sequence[Min: int, Max: int]:
             args = get_args(typ)
             if len(args) == 2 and all(isinstance(arg, int) for arg in args):
                 return args[0], args[1]
+        if isinstance(origin, type) and issubclass(origin, Sequence):
+            for base in getattr(origin, "__orig_bases__", ()):
+                base_origin = get_origin(base) or base
+                if base_origin is Sequence:
+                    args = get_args(base)
+                    if len(args) == 2 and all(isinstance(arg, int) for arg in args):
+                        return args[0], args[1]
         return None
 
     @classmethod
@@ -26,7 +33,8 @@ class Sequence[Min: int, Max: int]:
 
     @classmethod
     def structure(cls, value: Any, typ: type) -> Self:
-        if isinstance(value, cls):
+        concrete = get_origin(typ) or typ
+        if isinstance(value, concrete):
             return value
         if not isinstance(value, dict):
             raise ValueError(f"sequence must be an object, got {value!r}")
@@ -42,7 +50,7 @@ class Sequence[Min: int, Max: int]:
         pattern_t = tuple(pattern)
         cls._validate_items(prefix_t, bounds)
         cls._validate_items(pattern_t, bounds)
-        return cls(prefix_t, pattern_t)
+        return concrete(prefix_t, pattern_t)
 
     def unstructure(self) -> dict[str, list[int]]:
         payload: dict[str, list[int]] = {}

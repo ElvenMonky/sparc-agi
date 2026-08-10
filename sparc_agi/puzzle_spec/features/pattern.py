@@ -12,7 +12,7 @@ from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 
 @register_feature("pattern")
 @dataclass
-class PatternSpec(FeatureSpec, Sequence[-1, MAX_POOL]):
+class PatternSpec(FeatureSpec):
     prefix: list[int] = field(default_factory=list)
     pattern: list[int] = field(default_factory=list)
 
@@ -23,7 +23,7 @@ class PatternSpec(FeatureSpec, Sequence[-1, MAX_POOL]):
             return value
         if not isinstance(value, dict):
             raise ValueError(f"pattern must be an object, got {value!r}")
-        seq = Sequence.structure(value, Sequence)
+        seq = Sequence.structure(value, Sequence[-1, MAX_POOL])
         kwargs: dict[str, Any] = {
             "prefix": list(seq.prefix),
             "pattern": list(seq.pattern),
