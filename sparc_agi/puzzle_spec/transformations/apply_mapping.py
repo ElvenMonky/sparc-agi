@@ -1,9 +1,10 @@
 from dataclasses import dataclass
 
-from sparc_agi.puzzle_spec.features.base import Access, FilterSpec
+from sparc_agi.puzzle_spec.features.base import Access
+from sparc_agi.puzzle_spec.features.filter import FilterSpec
+from sparc_agi.puzzle_spec.wire import WireRef, filter_ref
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec, MaskToColorMappingSpec, WidthToColorMappingSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
-from sparc_agi.puzzle_spec.filter import filter_ref
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef
 

@@ -4,6 +4,17 @@ from typing import Any, Callable, ClassVar, Self, TypeVar, get_args, get_origin
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.wire import WireValue
 
+def _is_concrete_output(typ) -> bool:
+    if isinstance(typ, type):
+        return issubclass(typ, FeatureSpec)
+    args = get_args(typ)
+    if not args:
+        return False
+    return all(
+        arg is type(None) or (isinstance(arg, type) and issubclass(arg, FeatureSpec))
+        for arg in args
+    )
+
 @dataclass
 class TransformationSpec[Output: FeatureSpec]:
     REGISTRY: ClassVar[dict[str, type[Self]]] = {}
@@ -16,13 +27,13 @@ class TransformationSpec[Output: FeatureSpec]:
         raise ValueError(f"{cls.__name__} is not registered")
 
     @classmethod
-    def output_type(cls) -> type[FeatureSpec]:
+    def output_type(cls):
         for spec_cls in cls.__mro__:
             for base in getattr(spec_cls, "__orig_bases__", ()):
                 origin = get_origin(base) or base
                 if origin is TransformationSpec:
                     args = get_args(base)
-                    if len(args) == 1 and isinstance(args[0], type) and issubclass(args[0], FeatureSpec):
+                    if len(args) == 1 and _is_concrete_output(args[0]):
                         return args[0]
                 type_args = get_args(base)
                 if not isinstance(origin, type) or not type_args:
@@ -35,10 +46,10 @@ class TransformationSpec[Output: FeatureSpec]:
                     if len(parent_args) != 1:
                         continue
                     output = parent_args[0]
-                    if isinstance(output, type) and issubclass(output, FeatureSpec):
+                    if _is_concrete_output(output):
                         return output
                     specialized = type_args[0]
-                    if isinstance(specialized, type) and issubclass(specialized, FeatureSpec):
+                    if _is_concrete_output(specialized):
                         return specialized
         raise ValueError(f"{cls.__name__} must specialize TransformationSpec[FeatureSpec]")
 

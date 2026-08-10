@@ -2,29 +2,24 @@ from copy import deepcopy
 from dataclasses import dataclass
 
 from sparc_agi.puzzle_spec.features.arrangement import ArrangementSlotSpec, ArrangementSpec
-from sparc_agi.puzzle_spec.features.base import FeatureSpec, FilterSpec
+from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.object import BaseGroupSpec, GridSpec, ObjectSpec, PoolItemSpec
 from sparc_agi.puzzle_spec.features.pattern import PatternSlotSpec, PatternSpec
-from sparc_agi.puzzle_spec.filter import filter_ref
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
-from sparc_agi.puzzle_spec.wire import WireRef
-
-@dataclass
-class SpatialSpec[Object: FeatureSpec](TransformationSpec[Object]):
-    object: WireRef[Object]
-
-    @classmethod
-    def trace(cls, object: Object) -> Object:
-        return deepcopy(object)
+from sparc_agi.puzzle_spec.wire import WireRef, filter_ref
 
 @register_transformation("RemoveObjects")
 @dataclass
-class RemoveObjectsSpec(SpatialSpec[BaseGroupSpec]):
+class RemoveObjectsSpec(TransformationSpec[BaseGroupSpec | None]):
+    object: WireRef[BaseGroupSpec]
     filter: WireRef[FilterSpec] = filter_ref()
 
     @classmethod
-    def trace(cls, object: BaseGroupSpec, filter: FilterSpec) -> BaseGroupSpec:
-        return deepcopy(object)
+    def trace(cls, object: BaseGroupSpec, filter: FilterSpec) -> BaseGroupSpec | None:
+        root = deepcopy(object)
+        slot = PoolItemSpec(value=root)
+        filter.apply(slot).value = None
+        return slot.value
 
 @register_transformation("ArrangeObjects")
 @dataclass

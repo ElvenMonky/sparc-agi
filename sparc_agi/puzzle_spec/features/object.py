@@ -29,6 +29,7 @@ class ObjectSpec(FeatureSpec):
 
 @dataclass
 class PoolItemSpec(FeatureSlotSpec[ObjectSpec]):
+    value: ObjectSpec | None = None
     variants: Range[1, MAX_COUNT] | None = None
 
 @register_feature("object.point")

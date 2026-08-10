@@ -2,12 +2,12 @@ from collections.abc import Iterator
 from dataclasses import fields
 from typing import Any, get_args, get_origin
 
-from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec, FilterSpec
+from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
+from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec
-from sparc_agi.puzzle_spec.features.object import ObjectSpec
-from sparc_agi.puzzle_spec.filter import FILTER_BINDING_KEY, apply_filter
+from sparc_agi.puzzle_spec.features.object import ObjectSpec, PoolItemSpec
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
-from sparc_agi.puzzle_spec.wire import WireRef, WireValue
+from sparc_agi.puzzle_spec.wire import FILTER_BINDING_KEY, WireRef, WireValue
 
 def _collect_wire_values(
     step,
@@ -104,10 +104,28 @@ def trace_step_outputs(puzzle) -> list[FeatureSpec]:
         wire_values = _collect_wire_values(step, puzzle, step_index, outputs)
         output = step_cls.trace(**wire_values)
         declared = step_cls.output_type()
-        if not isinstance(output, declared):
+        declared_args = get_args(declared)
+        if output is None:
+            valid = declared is type(None) or type(None) in declared_args
+        elif declared_args:
+            valid = any(
+                arg is not type(None) and isinstance(output, arg)
+                for arg in declared_args
+            )
+        else:
+            valid = isinstance(output, declared)
+        if not valid:
+            got = "None" if output is None else type(output).tag()
+            if declared_args:
+                expected = " | ".join(
+                    "None" if arg is type(None) else arg.tag()
+                    for arg in declared_args
+                )
+            else:
+                expected = declared.tag()
             raise ValueError(
-                f"step {step_index} {step_cls.tag()}: trace returned {type(output).tag()}, "
-                f"expected {declared.tag()}"
+                f"step {step_index} {step_cls.tag()}: trace returned "
+                f"{got}, expected {expected}"
             )
         outputs.append(output)
     return outputs
@@ -195,24 +213,6 @@ def validate_step_wires(puzzle) -> None:
                     label += f"[{ref_index}]"
                 _validate_wire_ref(puzzle, step_index, ref, spec_type, label, outputs)
 
-def _validate_filter_target(
-    label: str,
-    obj: ObjectSpec,
-    filter_spec: FilterSpec,
-    access: Access,
-    traits: list[str],
-) -> None:
-    target = apply_filter(obj, filter_spec)
-    spec_cls = type(target)
-    for trait in traits:
-        if not has_trait_access(spec_cls, trait, access):
-            need = "gettable" if access & Access.GET else "settable"
-            if access == Access.RW:
-                need = "gettable/settable"
-            raise ValueError(
-                f"{label}: filtered {spec_cls.tag()} lacks {need} trait {trait!r}"
-            )
-
 def validate_filter_wires(puzzle) -> None:
     for step_index, step in enumerate(puzzle.steps):
         step_cls = type(step)
@@ -236,13 +236,18 @@ def validate_filter_wires(puzzle) -> None:
                 continue
             binding = dc_field.metadata[FILTER_BINDING_KEY]
             if binding is None:
-                apply_filter(root, filter_spec)
                 continue
+            slot = filter_spec.apply(PoolItemSpec(value=root))
+            if slot.value is None:
+                at = f"index {filter_spec.index[-1]}" if filter_spec.index else "root"
+                raise ValueError(f"{label}: filter {at} resolves to missing pool item")
+            target = slot.value
             access, trait = binding
-            _validate_filter_target(
-                label,
-                root,
-                filter_spec,
-                access,
-                [trait],
-            )
+            spec_cls = type(target)
+            if not has_trait_access(spec_cls, trait, access):
+                need = "gettable" if access & Access.GET else "settable"
+                if access == Access.RW:
+                    need = "gettable/settable"
+                raise ValueError(
+                    f"{label}: filtered {spec_cls.tag()} lacks {need} trait {trait!r}"
+                )

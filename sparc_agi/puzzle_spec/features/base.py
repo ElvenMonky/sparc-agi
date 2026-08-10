@@ -98,9 +98,3 @@ def register_feature(name: str) -> Callable[[type[F]], type[F]]:
         FeatureSpec.REGISTRY[name] = cls
         return cls
     return decorator
-
-@register_feature("filter")
-@dataclass
-class FilterSpec(FeatureSpec):
-    index: list[int] = field(default_factory=list)
-    criteria: list[str] = field(default_factory=list)

@@ -2,9 +2,8 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from sparc_agi.puzzle_spec.features.arrangement import ArrangementSpec
-from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec, FilterSpec
+from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
-from sparc_agi.puzzle_spec.filter import filter_ref
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef
 
