@@ -5,15 +5,17 @@
         "orientation": 12
       },
       "b": {
-        "layout": {
+        "arrangement.grid": {
           "size": {
             "width": 3,
             "height": 3
-          },
-          "arrangement": { "arrangement.grid": { "orientation": 2 } },
-          "pattern": {
-            "pattern": [0, 1, 0]
           }
+        }
+      },
+      "c": {
+        "pattern.linear": {
+          "direction": 2,
+          "pattern": [0, 1, 0]
         }
       }
     },
@@ -34,7 +36,7 @@
         "Rotate": ["a", 0]
       },
       {
-        "ArrangeObjects": ["b", 0, 1]
+        "ArrangeObjects": ["b", "c", 0, 1]
       }
     ]
   },
@@ -53,10 +55,10 @@
     },
     "steps": [
       {
-        "ExtractLayout": [0]
+        "ExtractArrangement": [0]
       },
       {
-        "ArrangeObjects": [1, 0]
+        "ArrangeObjects": [1, null, 0]
       }
     ]
   },
@@ -64,17 +66,16 @@
     "cache": {
       "a": {
         "filter": {
-          "index": 1,
+          "index": [1],
           "criteria": ["color", "kind"]
         }
       },
       "b": {
         "filter": {
-          "index": 0
+          "index": [0]
         }
       },
       "c": {
-        "scope": "sample",
         "mapping.color": {
           "key": "layout",
           "variants": 3,
@@ -92,18 +93,20 @@
         "draft": {
           "prefix": [0, 1]
         },
+        "margin": -1,
         "pool": [
           {
             "object.tree_structure": {
               "color": 2,
-              "count": [15, 30]
+              "count": [15, 30],
+              "margin": 1
             }
           },
           {
             "object.glyph": {
+              "linked_mappings": ["c"],
               "color": 1,
-              "margin": 1,
-              "mapping": "c"
+              "margin": 1
             }
           }
         ]
@@ -119,16 +122,10 @@
     },
     "steps": [
       {
-        "PickObject": [0, "a"]
+        "ApplyColorMapping": ["c", 0, "a", "b"]
       },
       {
         "RemoveObjects": [0, "a"]
-      },
-      {
-        "ExtractMappedColor": [1]
-      },
-      {
-        "ChangeColor": [3, 2, "b"]
       }
     ]
   },
@@ -136,7 +133,7 @@
     "cache": {
       "a": {
         "filter": {
-          "index": "0.0"
+          "index": [0, 0]
         }
       },
       "b": {
@@ -207,8 +204,8 @@
         "pool": [
           {
             "object.rectangle": {
+              "linked_mappings": ["a"],
               "margin": 1,
-              "mapping": "a",
               "size": {
                 "width": [5, 9, 2],
                 "height": [5, 9, 2],
@@ -232,7 +229,7 @@
     },
     "steps": [
       {
-        "ChangeColor": ["a", 0, "b"]
+        "ApplyColorMapping": ["a", 0, "b", "b"]
       }
     ]
   }
