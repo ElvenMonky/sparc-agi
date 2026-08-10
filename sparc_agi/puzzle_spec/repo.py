@@ -9,9 +9,11 @@ import sparc_agi.puzzle_spec.features  # noqa: F401
 import sparc_agi.puzzle_spec.transformations  # noqa: F401
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
+from sparc_agi.puzzle_spec.features.pattern import PatternSpec
 from sparc_agi.puzzle_spec.features.scalar import ScalarSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
+from sparc_agi.puzzle_spec.sequence import Sequence
 from sparc_agi.puzzle_spec.spec import PuzzleSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec
 
@@ -27,6 +29,9 @@ def _field_type(cls: type, name: str) -> type:
 def _is_range_type(typ: type) -> bool:
     return typ is Range or get_origin(typ) is Range
 
+def _is_sequence_type(typ: type) -> bool:
+    return isinstance(typ, type) and issubclass(typ, Sequence)
+
 def _input_spec_structure_hook(spec_cls: type, converter: cattrs.Converter):
     def hook(value: object, typ: type) -> object:
         return spec_cls.structure(value, typ, converter)
@@ -38,6 +43,8 @@ def _input_spec_unstructure_hook(spec_cls: type, converter: cattrs.Converter):
     return hook
 
 def _structure_feature(value: object, cls: type, converter: cattrs.Converter) -> object:
+    if isinstance(cls, type) and issubclass(cls, PatternSpec):
+        return PatternSpec.structure(value, cls, converter)
     if isinstance(value, cls):
         return value
     if isinstance(value, (int, list, Range)):
@@ -80,6 +87,9 @@ def _register_hooks(converter: cattrs.Converter) -> None:
 
     converter.register_structure_hook_func(_is_range_type, Range.structure)
     converter.register_unstructure_hook_func(_is_range_type, lambda inst: inst.unstructure())
+
+    converter.register_structure_hook_func(_is_sequence_type, Sequence.structure)
+    converter.register_unstructure_hook_func(_is_sequence_type, lambda inst: inst.unstructure())
 
     converter.register_structure_hook(
         TransformationSpec,

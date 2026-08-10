@@ -3,16 +3,15 @@ from dataclasses import dataclass, field
 from sparc_agi.consts import MAX_COUNT
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec, register_feature, trait
 from sparc_agi.puzzle_spec.features.cut import CutSpec
-from sparc_agi.puzzle_spec.features.layout import (
+from sparc_agi.puzzle_spec.features.arrangement import (
     ArrangementSlotSpec,
     ArrangementSpec,
-    PatternSpec,
     GridArrangementSpec,
     OriginSpec,
-    PatternSlotSpec,
     SizeSpec,
     TreeArrangementSpec,
 )
+from sparc_agi.puzzle_spec.features.pattern import PatternSlotSpec, PatternSpec
 from sparc_agi.puzzle_spec.features.margin import MarginSpec
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, CountSpec, HeightSpec, OrientationSpec, WidthSpec
 from sparc_agi.puzzle_spec.range import Range

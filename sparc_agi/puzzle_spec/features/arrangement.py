@@ -1,10 +1,11 @@
 from dataclasses import dataclass, field
 from typing import Literal
 
-from sparc_agi.consts import MAX_COUNT, MAX_ORIENTATION, MAX_SIZE
+from sparc_agi.consts import MAX_ORIENTATION, MAX_SIZE
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, CountSpec, HeightSpec, OrientationSpec, WidthSpec
 from sparc_agi.puzzle_spec.range import Range
+from sparc_agi.puzzle_spec.sequence import Sequence
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 
 @register_feature("size")
@@ -25,21 +26,6 @@ class PositionSpec(FeatureSpec):
 class OriginSpec(PositionSpec):
     color: ColorSpec | None = trait(default=None)
 
-@register_feature("pattern")
-@dataclass
-class PatternSpec(FeatureSpec):
-    prefix: list[int] = field(default_factory=list)
-    pattern: list[int] = field(default_factory=list)
-
-@dataclass
-class PatternSlotSpec(FeatureSlotSpec[PatternSpec]):
-    pass
-
-@register_feature("pattern.linear")
-@dataclass
-class LinearPatternSpec(PatternSpec):
-    direction: OrientationSpec = trait(default_factory=lambda: OrientationSpec(Range(0)))
-
 @register_feature("arrangement")
 @dataclass
 class ArrangementSpec(FeatureSpec):
@@ -58,7 +44,13 @@ class GridArrangementSpec(ArrangementSpec):
 @dataclass
 class RaySpec:
     direction: Range[0, MAX_ORIENTATION] = field(default_factory=lambda: Range(0, MAX_ORIENTATION))
-    count: Range[1, MAX_COUNT] = field(default_factory=lambda: Range(1, MAX_COUNT))
+    length: Range[1, MAX_SIZE] = field(default_factory=lambda: Range(1, MAX_SIZE))
+
+class GrowthSpec(Sequence[-MAX_SIZE // 2, MAX_SIZE // 2]):
+    pass
+
+class TurnSpec(Sequence[0, MAX_ORIENTATION // 2]):
+    pass
 
 @register_feature("arrangement.star")
 @dataclass
@@ -66,9 +58,8 @@ class StarArrangementSpec(ArrangementSpec):
     rays: list[RaySpec] = field(default_factory=list)
     origin: PositionSpec | None = trait(default=None)
     order: Literal["same", "next", "random"] = field(default="same")
-    gap: PatternSpec | None = trait(default=None)
-    growth: PatternSpec | None = trait(default=None)
-    turn: PatternSpec | None = trait(default=None)
+    growth: GrowthSpec | None = trait(default=None)
+    turn: TurnSpec | None = trait(default=None)
 
 @register_feature("arrangement.tree")
 @dataclass
