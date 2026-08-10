@@ -4,8 +4,6 @@ from typing import Any, Callable, ClassVar, Self, TypeVar
 
 import cattrs
 
-F = TypeVar("F", bound="FeatureSpec")
-
 ACCESS_KEY = "access"
 
 class Access(IntFlag):
@@ -45,7 +43,7 @@ def _omit_if_default(converter: cattrs.Converter, dc_field: Field[Any], val: Any
 
 @dataclass
 class FeatureSpec:
-    REGISTRY: ClassVar[dict[str, type["FeatureSpec"]]] = {}
+    REGISTRY: ClassVar[dict[str, type[Self]]] = {}
 
     @classmethod
     def tag(cls) -> str:
@@ -88,6 +86,8 @@ class FeatureSpec:
                 continue
             payload[dc_field.name] = converter.unstructure(val)
         return payload
+
+F = TypeVar("F", bound=FeatureSpec)
 
 def register_feature(name: str) -> Callable[[type[F]], type[F]]:
     def decorator(cls: type[F]) -> type[F]:

@@ -6,12 +6,14 @@ from typing import ClassVar, Self, get_args, get_origin, get_type_hints
 import cattrs
 
 import sparc_agi.puzzle_spec.features  # noqa: F401
+import sparc_agi.puzzle_spec.transformations  # noqa: F401
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.features.scalar import ScalarSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.spec import PuzzleSpec
+from sparc_agi.puzzle_spec.transformations.base import TransformationSpec
 
 def _field_type(cls: type, name: str) -> type:
     hint = get_type_hints(cls, include_extras=True)[name]
@@ -78,6 +80,15 @@ def _register_hooks(converter: cattrs.Converter) -> None:
 
     converter.register_structure_hook_func(_is_range_type, Range.structure)
     converter.register_unstructure_hook_func(_is_range_type, lambda inst: inst.unstructure())
+
+    converter.register_structure_hook(
+        TransformationSpec,
+        lambda value, typ: TransformationSpec.structure_step(value, typ, converter),
+    )
+    converter.register_unstructure_hook(
+        TransformationSpec,
+        lambda inst: TransformationSpec.unstructure_step(inst),
+    )
 
     for cls in FeatureSlotSpec.__subclasses__():
         converter.register_structure_hook(cls, _input_spec_structure_hook(cls, converter))

@@ -1,10 +1,10 @@
 from dataclasses import dataclass, field
-from typing import Any
 
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.slot import CacheItemSpec, FeatureSlotSpec
+from sparc_agi.puzzle_spec.transformations.base import TransformationSpec
 
 @dataclass
 class InputSpec(FeatureSlotSpec[ObjectSpec]):
@@ -19,6 +19,6 @@ class SamplesSpec:
 class PuzzleSpec:
     input: InputSpec
     samples: SamplesSpec
-    steps: list[dict[str, list[Any]]]
+    steps: list[TransformationSpec]
     cache: dict[str, CacheItemSpec] = field(default_factory=dict)
     palette: PaletteSpec = field(default_factory=PaletteSpec)
