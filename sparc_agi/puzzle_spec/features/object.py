@@ -101,7 +101,6 @@ class SpriteSpec(BaseGroupSpec):
     pool: list[PoolItemSpec] = trait(access=Access(0), default_factory=list)
 
     def __post_init__(self) -> None:
-        self.arrangement.value.size = self.size
         self.pool = [PoolItemSpec(value=PointSpec(color=self.color))]
 
 @register_feature("object.tree_structure")

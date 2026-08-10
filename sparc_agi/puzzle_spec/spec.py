@@ -29,7 +29,7 @@ class PuzzleSpec:
     steps: list[TransformationSpec]
     cache: dict[str, CacheItemSpec] = field(default_factory=dict)
     palette: PaletteSpec = field(default_factory=PaletteSpec)
-    step_outputs: list[type[FeatureSpec]] = field(init=False, default_factory=list)
+    step_outputs: list[FeatureSpec] = field(init=False, default_factory=list)
 
     def __post_init__(self) -> None:
         self.step_outputs = trace_step_outputs(self)

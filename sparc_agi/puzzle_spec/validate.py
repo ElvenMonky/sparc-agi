@@ -9,6 +9,29 @@ from sparc_agi.puzzle_spec.filter import FILTER_BINDING_KEY, apply_filter
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 from sparc_agi.puzzle_spec.wire import WireValue, wire_spec_type
 
+def _collect_wire_values(
+    step,
+    puzzle,
+    step_index: int,
+    outputs: list[FeatureSpec],
+) -> dict[str, Any]:
+    wire_values: dict[str, Any] = {}
+    for dc_field in fields(type(step)):
+        if wire_spec_type(dc_field.type) is None:
+            continue
+        value = getattr(step, dc_field.name)
+        if get_origin(dc_field.type) is list:
+            wire_values[dc_field.name] = [
+                _resolve_ref_value(puzzle, step_index, ref, outputs) for ref in value
+            ]
+        elif value is None:
+            wire_values[dc_field.name] = None
+        else:
+            wire_values[dc_field.name] = _resolve_ref_value(
+                puzzle, step_index, value, outputs
+            )
+    return wire_values
+
 def _unwrap_optional(hint: type) -> type:
     args = get_args(hint)
     if args and type(None) in args:
@@ -57,8 +80,37 @@ def iter_input_objects(root: ObjectSpec) -> Iterator[ObjectSpec]:
         for item in pool:
             yield from iter_input_objects(item.value)
 
-def trace_step_outputs(puzzle) -> list[type[FeatureSpec]]:
-    return [type(step).output_type() for step in puzzle.steps]
+def _resolve_ref_value(
+    puzzle,
+    step_index: int,
+    ref: WireValue,
+    outputs: list[FeatureSpec],
+) -> FeatureSpec:
+    if isinstance(ref, str):
+        item = puzzle.cache.get(ref)
+        if item is None:
+            raise ValueError(f"unknown cache key {ref!r}")
+        return item.value
+    if isinstance(ref, int):
+        if ref < 0 or ref > step_index:
+            raise ValueError(f"invalid wire ref {ref}")
+        return outputs[ref]
+    raise ValueError(f"invalid wire value {ref!r}")
+
+def trace_step_outputs(puzzle) -> list[FeatureSpec]:
+    outputs: list[FeatureSpec] = [puzzle.input.value]
+    for step_index, step in enumerate(puzzle.steps):
+        step_cls = type(step)
+        wire_values = _collect_wire_values(step, puzzle, step_index, outputs)
+        output = step_cls.trace(**wire_values)
+        declared = step_cls.output_type()
+        if not isinstance(output, declared):
+            raise ValueError(
+                f"step {step_index} {step_cls.tag()}: trace returned {type(output).tag()}, "
+                f"expected {declared.tag()}"
+            )
+        outputs.append(output)
+    return outputs
 
 def _resolve_filter(puzzle, ref: WireValue) -> FilterSpec:
     if not isinstance(ref, str):
@@ -103,7 +155,7 @@ def _validate_wire_ref(
     ref: object,
     expected: type[FeatureSpec],
     label: str,
-    outputs: list[type[FeatureSpec]],
+    outputs: list[FeatureSpec],
 ) -> None:
     if ref is None:
         return
@@ -118,15 +170,7 @@ def _validate_wire_ref(
             )
         return
     if isinstance(ref, int):
-        if ref == 0:
-            actual = type(puzzle.input.value)
-        elif ref >= 1:
-            out_step = ref - 1
-            if out_step >= step_index:
-                raise ValueError(f"{label}: forward reference to step output {ref}")
-            actual = outputs[out_step]
-        else:
-            raise ValueError(f"{label}: invalid wire ref {ref}")
+        actual = type(_resolve_ref_value(puzzle, step_index, ref, outputs))
         if not issubclass(actual, expected):
             raise ValueError(
                 f"{label}: step ref {ref} is {actual.tag()}, expected {expected.tag()}"
@@ -185,16 +229,19 @@ def validate_filter_wires(puzzle) -> None:
                 continue
             label = f"step {step_index} {step_cls.tag()}.{dc_field.name}"
             filter_spec = _resolve_filter(puzzle, filter_wire)
-            if object_ref != 0:
+            if not isinstance(object_ref, int):
+                continue
+            root = puzzle.step_outputs[object_ref]
+            if not isinstance(root, ObjectSpec):
                 continue
             binding = dc_field.metadata[FILTER_BINDING_KEY]
             if binding is None:
-                apply_filter(puzzle.input.value, filter_spec)
+                apply_filter(root, filter_spec)
                 continue
             access, trait = binding
             _validate_filter_target(
                 label,
-                puzzle.input.value,
+                root,
                 filter_spec,
                 access,
                 [trait],
