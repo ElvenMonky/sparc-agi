@@ -112,11 +112,12 @@ class TreeStructureSpec(BaseGroupSpec):
         access=Access.GET,
         default_factory=lambda: ArrangementSlotSpec(TreeArrangementSpec()),
     )
-    pool: list[PoolItemSpec] = trait(access=Access(0), default_factory=list)
+    pool: list[PoolItemSpec] = trait(access=Access.SET, default_factory=list)
 
     def __post_init__(self) -> None:
         self.arrangement.value.count = self.count
-        self.pool = [PoolItemSpec(
-            variants=Range(1),
-            value=PointSpec(color=self.color)
-        )]
+        if len(self.pool) == 0:
+            self.pool = [PoolItemSpec(
+                variants=Range(1),
+                value=PointSpec(color=self.color),
+            )]
