@@ -7,7 +7,7 @@ from sparc_agi.puzzle_spec.features.mapping import MappingSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.filter import FILTER_BINDING_KEY, apply_filter
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
-from sparc_agi.puzzle_spec.wire import WireValue, wire_spec_type
+from sparc_agi.puzzle_spec.wire import WireRef, WireValue
 
 def _collect_wire_values(
     step,
@@ -17,7 +17,7 @@ def _collect_wire_values(
 ) -> dict[str, Any]:
     wire_values: dict[str, Any] = {}
     for dc_field in fields(type(step)):
-        if wire_spec_type(dc_field.type) is None:
+        if WireRef.spec_type(dc_field.type) is None:
             continue
         value = getattr(step, dc_field.name)
         if get_origin(dc_field.type) is list:
@@ -183,7 +183,7 @@ def validate_step_wires(puzzle) -> None:
     for step_index, step in enumerate(puzzle.steps):
         step_cls = type(step)
         for dc_field in fields(step_cls):
-            spec_type = wire_spec_type(dc_field.type)
+            spec_type = WireRef.spec_type(dc_field.type)
             if spec_type is None:
                 continue
             is_list = get_origin(dc_field.type) is list
@@ -220,7 +220,7 @@ def validate_filter_wires(puzzle) -> None:
         if object_ref is None:
             continue
         for dc_field in fields(step_cls):
-            if wire_spec_type(dc_field.type) is not FilterSpec:
+            if WireRef.spec_type(dc_field.type) is not FilterSpec:
                 continue
             if FILTER_BINDING_KEY not in dc_field.metadata:
                 continue

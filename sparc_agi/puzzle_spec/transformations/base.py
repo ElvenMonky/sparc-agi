@@ -17,18 +17,29 @@ class TransformationSpec[Output: FeatureSpec]:
 
     @classmethod
     def output_type(cls) -> type[FeatureSpec]:
-        origin = get_origin(cls) or cls
-        if origin is TransformationSpec:
-            args = get_args(cls)
-            if len(args) == 1 and isinstance(args[0], type) and issubclass(args[0], FeatureSpec):
-                return args[0]
-        if isinstance(origin, type) and issubclass(origin, TransformationSpec):
-            for base in getattr(origin, "__orig_bases__", ()):
-                base_origin = get_origin(base) or base
-                if base_origin is TransformationSpec:
+        for spec_cls in cls.__mro__:
+            for base in getattr(spec_cls, "__orig_bases__", ()):
+                origin = get_origin(base) or base
+                if origin is TransformationSpec:
                     args = get_args(base)
                     if len(args) == 1 and isinstance(args[0], type) and issubclass(args[0], FeatureSpec):
                         return args[0]
+                type_args = get_args(base)
+                if not isinstance(origin, type) or not type_args:
+                    continue
+                for parent in getattr(origin, "__orig_bases__", ()):
+                    parent_origin = get_origin(parent) or parent
+                    if parent_origin is not TransformationSpec:
+                        continue
+                    parent_args = get_args(parent)
+                    if len(parent_args) != 1:
+                        continue
+                    output = parent_args[0]
+                    if isinstance(output, type) and issubclass(output, FeatureSpec):
+                        return output
+                    specialized = type_args[0]
+                    if isinstance(specialized, type) and issubclass(specialized, FeatureSpec):
+                        return specialized
         raise ValueError(f"{cls.__name__} must specialize TransformationSpec[FeatureSpec]")
 
     @classmethod

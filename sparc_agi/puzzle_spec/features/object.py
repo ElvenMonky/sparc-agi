@@ -22,6 +22,7 @@ from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 class ObjectSpec(FeatureSpec):
     color: ColorSpec = trait(default_factory=ColorSpec)
     margin: MarginSpec = trait(default_factory=MarginSpec)
+    orientation: OrientationSpec | None = trait(default=None)
     origin: OriginSpec | None = trait(default=None)
     size: SizeSpec = trait(default_factory=SizeSpec)
     linked_mappings: list[str] = field(default_factory=list)
