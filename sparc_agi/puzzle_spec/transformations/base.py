@@ -1,10 +1,11 @@
 from dataclasses import dataclass, fields
-from typing import Any, Callable, ClassVar, Self, TypeVar, get_origin
+from typing import Any, Callable, ClassVar, Self, TypeVar, get_args, get_origin
 
-WireRef = str | int | None
+from sparc_agi.puzzle_spec.features.base import FeatureSpec
+from sparc_agi.puzzle_spec.wire import WireValue
 
 @dataclass
-class TransformationSpec:
+class TransformationSpec[Output: FeatureSpec]:
     REGISTRY: ClassVar[dict[str, type[Self]]] = {}
 
     @classmethod
@@ -13,6 +14,22 @@ class TransformationSpec:
             if registered is cls:
                 return name
         raise ValueError(f"{cls.__name__} is not registered")
+
+    @classmethod
+    def output_type(cls) -> type[FeatureSpec]:
+        origin = get_origin(cls) or cls
+        if origin is TransformationSpec:
+            args = get_args(cls)
+            if len(args) == 1 and isinstance(args[0], type) and issubclass(args[0], FeatureSpec):
+                return args[0]
+        if isinstance(origin, type) and issubclass(origin, TransformationSpec):
+            for base in getattr(origin, "__orig_bases__", ()):
+                base_origin = get_origin(base) or base
+                if base_origin is TransformationSpec:
+                    args = get_args(base)
+                    if len(args) == 1 and isinstance(args[0], type) and issubclass(args[0], FeatureSpec):
+                        return args[0]
+        raise ValueError(f"{cls.__name__} must specialize TransformationSpec[FeatureSpec]")
 
     @classmethod
     def structure(cls, wires: object, _: type, __: Any) -> Self:
@@ -36,7 +53,7 @@ class TransformationSpec:
             )
         return cls(*wires)
 
-    def unstructure(self) -> list[WireRef]:
+    def unstructure(self) -> list[WireValue]:
         dc_fields = fields(self)
         if dc_fields and get_origin(dc_fields[-1].type) is list:
             wires = [getattr(self, dc_field.name) for dc_field in dc_fields[:-1]]
@@ -57,7 +74,7 @@ class TransformationSpec:
         return spec_cls.structure(wires, spec_cls, None)
 
     @classmethod
-    def unstructure_step(cls, inst: Self) -> dict[str, list[WireRef]]:
+    def unstructure_step(cls, inst: Self) -> dict[str, list[WireValue]]:
         return {type(inst).tag(): inst.unstructure()}
 
 T = TypeVar("T", bound=TransformationSpec)

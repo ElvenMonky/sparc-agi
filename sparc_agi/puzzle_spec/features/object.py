@@ -93,6 +93,10 @@ class GlyphSpec(GridSpec):
 @register_feature("object.sprite")
 @dataclass
 class SpriteSpec(GridSpec):
+    color: ColorSpec = trait(
+        access=Access.SET,
+        default_factory=ColorSpec
+    )
     arrangement: ArrangementSlotSpec = trait(
         access=Access.GET,
         default_factory=lambda: ArrangementSlotSpec(GridArrangementSpec()),

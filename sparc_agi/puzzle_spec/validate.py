@@ -6,6 +6,7 @@ from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
+from sparc_agi.puzzle_spec.wire import wire_spec_type
 
 def _unwrap_optional(hint: type) -> type:
     args = get_args(hint)
@@ -70,3 +71,58 @@ def validate_linked_mappings(puzzle) -> None:
                     f"{spec_cls.tag()} linked_mappings cache key {cache_key!r} "
                     f"uses non-gettable trait {mapping.key!r}"
                 )
+
+def _validate_wire_ref(
+    puzzle,
+    step_index: int,
+    ref: object,
+    expected: type[FeatureSpec],
+    label: str,
+    outputs: list[type[FeatureSpec]],
+) -> None:
+    if ref is None:
+        return
+    if isinstance(ref, str):
+        item = puzzle.cache.get(ref)
+        if item is None:
+            raise ValueError(f"{label}: unknown cache key {ref!r}")
+        actual = type(item.value)
+        if not issubclass(actual, expected):
+            raise ValueError(
+                f"{label}: cache key {ref!r} is {actual.tag()}, expected {expected.tag()}"
+            )
+        return
+    if isinstance(ref, int):
+        if ref == 0:
+            actual = type(puzzle.input.value)
+        elif ref >= 1:
+            out_step = ref - 1
+            if out_step >= step_index:
+                raise ValueError(f"{label}: forward reference to step output {ref}")
+            actual = outputs[out_step]
+        else:
+            raise ValueError(f"{label}: invalid wire ref {ref}")
+        if not issubclass(actual, expected):
+            raise ValueError(
+                f"{label}: step ref {ref} is {actual.tag()}, expected {expected.tag()}"
+            )
+        return
+    raise ValueError(f"{label}: invalid wire value {ref!r}")
+
+def validate_step_wires(puzzle) -> None:
+    outputs: list[type[FeatureSpec]] = []
+    for step_index, step in enumerate(puzzle.steps):
+        step_cls = type(step)
+        for dc_field in fields(step_cls):
+            spec_type = wire_spec_type(dc_field.type)
+            if spec_type is None:
+                continue
+            is_list = get_origin(dc_field.type) is list
+            value = getattr(step, dc_field.name)
+            refs = value if is_list else [value]
+            for ref_index, ref in enumerate(refs):
+                label = f"step {step_index} {step_cls.tag()}.{dc_field.name}"
+                if is_list:
+                    label += f"[{ref_index}]"
+                _validate_wire_ref(puzzle, step_index, ref, spec_type, label, outputs)
+        outputs.append(type(step).output_type())

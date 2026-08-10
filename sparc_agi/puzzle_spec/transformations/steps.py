@@ -1,42 +1,50 @@
 from dataclasses import dataclass
 
-from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, WireRef, register_transformation
+from sparc_agi.puzzle_spec.features.arrangement import ArrangementSpec
+from sparc_agi.puzzle_spec.features.base import FilterSpec
+from sparc_agi.puzzle_spec.features.mapping import ColorMappingSpec
+from sparc_agi.puzzle_spec.features.object import ObjectSpec, GridSpec
+from sparc_agi.puzzle_spec.features.pattern import PatternSpec
+from sparc_agi.puzzle_spec.features.scalar import ColorSpec, OrientationSpec
+from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
+from sparc_agi.puzzle_spec.wire import WireRef
 
 @register_transformation("Rotate")
 @dataclass
-class RotateSpec(TransformationSpec):
-    orientation: WireRef
-    object: WireRef
+class RotateSpec(TransformationSpec[ObjectSpec]):
+    orientation: WireRef[OrientationSpec]
+    object: WireRef[ObjectSpec]
+    filter: WireRef[FilterSpec]
 
 @register_transformation("ExtractArrangement")
 @dataclass
-class ExtractArrangementSpec(TransformationSpec):
-    object: WireRef
+class ExtractArrangementSpec(TransformationSpec[ArrangementSpec]):
+    object: WireRef[ObjectSpec]
 
 @register_transformation("ArrangeObjects")
 @dataclass
-class ArrangeObjectsSpec(TransformationSpec):
-    arrangement: WireRef
-    pattern: WireRef
-    pool: list[WireRef]
+class ArrangeObjectsSpec(TransformationSpec[GridSpec]):
+    arrangement: WireRef[ArrangementSpec]
+    pattern: WireRef[PatternSpec]
+    pool: list[WireRef[ObjectSpec]]
 
 @register_transformation("ApplyColorMapping")
 @dataclass
-class ApplyColorMappingSpec(TransformationSpec):
-    mapping: WireRef
-    object: WireRef
-    source_filter: WireRef
-    target_filter: WireRef
+class ApplyColorMappingSpec(TransformationSpec[ObjectSpec]):
+    mapping: WireRef[ColorMappingSpec]
+    object: WireRef[ObjectSpec]
+    source_filter: WireRef[FilterSpec]
+    target_filter: WireRef[FilterSpec]
 
 @register_transformation("ChangeColor")
 @dataclass
-class ChangeColorSpec(TransformationSpec):
-    color: WireRef
-    object: WireRef
-    filter: WireRef
+class ChangeColorSpec(TransformationSpec[ObjectSpec]):
+    color: WireRef[ColorSpec]
+    object: WireRef[ObjectSpec]
+    filter: WireRef[FilterSpec]
 
 @register_transformation("RemoveObjects")
 @dataclass
-class RemoveObjectsSpec(TransformationSpec):
-    object: WireRef
-    filter: WireRef
+class RemoveObjectsSpec(TransformationSpec[BaseGroupSpec]):
+    object: WireRef[BaseGroupSpec]
+    filter: WireRef[FilterSpec]

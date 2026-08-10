@@ -5,7 +5,7 @@ from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.slot import CacheItemSpec, FeatureSlotSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec
-from sparc_agi.puzzle_spec.validate import validate_linked_mappings
+from sparc_agi.puzzle_spec.validate import validate_linked_mappings, validate_step_wires
 
 @dataclass
 class InputSpec(FeatureSlotSpec[ObjectSpec]):
@@ -26,3 +26,4 @@ class PuzzleSpec:
 
     def __post_init__(self) -> None:
         validate_linked_mappings(self)
+        validate_step_wires(self)
