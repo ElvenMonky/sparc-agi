@@ -10,12 +10,12 @@ from sparc_agi.puzzle_spec.wire import WireRef, filter_ref
 
 @register_transformation("RemoveObjects")
 @dataclass
-class RemoveObjectsSpec(TransformationSpec[BaseGroupSpec | None]):
+class RemoveObjectsSpec(TransformationSpec[BaseGroupSpec]):
     object: WireRef[BaseGroupSpec]
     filter: WireRef[FilterSpec] = filter_ref()
 
     @classmethod
-    def trace(cls, object: BaseGroupSpec, filter: FilterSpec) -> BaseGroupSpec | None:
+    def trace(cls, object: BaseGroupSpec, filter: FilterSpec) -> BaseGroupSpec:
         root = deepcopy(object)
         slot = PoolItemSpec(value=root)
         filter.apply(slot).value = None

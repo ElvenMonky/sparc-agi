@@ -103,29 +103,13 @@ def trace_step_outputs(puzzle) -> list[FeatureSpec]:
         step_cls = type(step)
         wire_values = _collect_wire_values(step, puzzle, step_index, outputs)
         output = step_cls.trace(**wire_values)
-        declared = step_cls.output_type()
-        declared_args = get_args(declared)
         if output is None:
-            valid = declared is type(None) or type(None) in declared_args
-        elif declared_args:
-            valid = any(
-                arg is not type(None) and isinstance(output, arg)
-                for arg in declared_args
-            )
-        else:
-            valid = isinstance(output, declared)
-        if not valid:
-            got = "None" if output is None else type(output).tag()
-            if declared_args:
-                expected = " | ".join(
-                    "None" if arg is type(None) else arg.tag()
-                    for arg in declared_args
-                )
-            else:
-                expected = declared.tag()
+            raise ValueError(f"step {step_index} {step_cls.tag()}: trace returned None")
+        declared = step_cls.output_type()
+        if not isinstance(output, declared):
             raise ValueError(
                 f"step {step_index} {step_cls.tag()}: trace returned "
-                f"{got}, expected {expected}"
+                f"{type(output).tag()}, expected {declared.tag()}"
             )
         outputs.append(output)
     return outputs

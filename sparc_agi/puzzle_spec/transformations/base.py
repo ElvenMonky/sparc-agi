@@ -5,15 +5,7 @@ from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.wire import WireValue
 
 def _is_concrete_output(typ) -> bool:
-    if isinstance(typ, type):
-        return issubclass(typ, FeatureSpec)
-    args = get_args(typ)
-    if not args:
-        return False
-    return all(
-        arg is type(None) or (isinstance(arg, type) and issubclass(arg, FeatureSpec))
-        for arg in args
-    )
+    return isinstance(typ, type) and issubclass(typ, FeatureSpec)
 
 @dataclass
 class TransformationSpec[Output: FeatureSpec]:
