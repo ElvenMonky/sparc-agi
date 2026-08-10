@@ -1,9 +1,9 @@
 import random
-from dataclasses import InitVar, dataclass
+from dataclasses import InitVar, dataclass, field
 from typing import Any
 
 from sparc_agi.consts import MAX_SIZE
-from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait
+from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature
 from sparc_agi.puzzle_spec.range import Range
 
 CUT_RANGE = Range[0, MAX_SIZE - 1]
@@ -11,10 +11,10 @@ CUT_RANGE = Range[0, MAX_SIZE - 1]
 @register_feature("cut")
 @dataclass
 class CutSpec(FeatureSpec):
-    tl: CUT_RANGE = trait(default_factory=Range)
-    tr: CUT_RANGE = trait(default_factory=Range)
-    br: CUT_RANGE = trait(default_factory=Range)
-    bl: CUT_RANGE = trait(default_factory=Range)
+    tl: CUT_RANGE = field(default_factory=Range)
+    tr: CUT_RANGE = field(default_factory=Range)
+    br: CUT_RANGE = field(default_factory=Range)
+    bl: CUT_RANGE = field(default_factory=Range)
     value: InitVar[CUT_RANGE | None] = None
 
     def __post_init__(self, value: CUT_RANGE | None) -> None:

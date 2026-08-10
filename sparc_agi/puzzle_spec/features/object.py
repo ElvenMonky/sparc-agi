@@ -5,11 +5,11 @@ from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec, register_fe
 from sparc_agi.puzzle_spec.features.cut import CutSpec
 from sparc_agi.puzzle_spec.features.layout import (
     ArrangementSlotSpec,
-    DraftSpec,
+    ArrangementSpec,
+    PatternSpec,
     GridArrangementSpec,
-    LayoutSpec,
     OriginSpec,
-    PositionSpec,
+    PatternSlotSpec,
     SizeSpec,
     TreeArrangementSpec,
 )
@@ -25,7 +25,7 @@ class ObjectSpec(FeatureSpec):
     margin: MarginSpec = trait(default_factory=MarginSpec)
     origin: OriginSpec | None = trait(default=None)
     size: SizeSpec = trait(default_factory=SizeSpec)
-    mapping: str | None = field(default=None)
+    linked_mappings: list[str] = field(default_factory=list)
 
 @dataclass
 class PoolItemSpec(FeatureSlotSpec[ObjectSpec]):
@@ -63,12 +63,13 @@ class BaseGroupSpec(ObjectSpec):
 @dataclass
 class GroupSpec(BaseGroupSpec):
     count: CountSpec = trait(default_factory=CountSpec)
-    draft: DraftSpec | None = trait(default=None)
+    draft: PatternSpec | None = trait(default=None)
 
 @register_feature("object.grid")
 @dataclass
 class GridSpec(BaseGroupSpec):
-    layout: LayoutSpec = trait(default_factory=LayoutSpec)
+    arrangement: ArrangementSlotSpec = trait(default_factory=ArrangementSlotSpec(GridArrangementSpec()))
+    pattern: PatternSlotSpec | None = trait(default=None)
 
 @register_feature("object.glyph")
 @dataclass
@@ -77,42 +78,45 @@ class GlyphSpec(GridSpec):
         access=Access.GET,
         default_factory=lambda: SizeSpec(width=WidthSpec(Range(3)), height=HeightSpec(Range(3))),
     )
-    layout: LayoutSpec = trait(
+    arrangement: ArrangementSlotSpec = trait(
         access=Access.GET,
-        default_factory=lambda: LayoutSpec(count=CountSpec(Range(2, 8))),
+        default_factory=lambda: ArrangementSlotSpec(ArrangementSpec(count=CountSpec(Range(2, 8)))),
     )
     pool: list[PoolItemSpec] = trait(access=Access(0), default_factory=list)
 
     def __post_init__(self) -> None:
-        self.layout.size = self.size
+        self.arrangement.value.size = self.size
         self.pool = [PoolItemSpec(
             variants=Range(1),
-            value=PointSpec(color=self.color)
+            value=PointSpec(color=self.color),
         )]
 
 @register_feature("object.sprite")
 @dataclass
 class SpriteSpec(GridSpec):
-    layout: LayoutSpec = trait(
+    arrangement: ArrangementSlotSpec = trait(
         access=Access.GET,
-        default_factory=lambda: LayoutSpec(arrangement=ArrangementSlotSpec(GridArrangementSpec())),
+        default_factory=lambda: ArrangementSlotSpec(GridArrangementSpec()),
     )
     pool: list[PoolItemSpec] = trait(access=Access(0), default_factory=list)
 
     def __post_init__(self) -> None:
-        self.layout.size = self.size
-        self.pool = [PoolItemSpec(
-            value=PointSpec(color=self.color)
-        )]
+        self.arrangement.value.size = self.size
+        self.pool = [PoolItemSpec(value=PointSpec(color=self.color))]
 
 @register_feature("object.tree_structure")
 @dataclass
 class TreeStructureSpec(BaseGroupSpec):
     count: CountSpec = trait(default_factory=CountSpec)
-    layout: LayoutSpec = trait(
+    arrangement: ArrangementSlotSpec = trait(
         access=Access.GET,
-        default_factory=lambda: LayoutSpec(arrangement=ArrangementSlotSpec(TreeArrangementSpec())),
+        default_factory=lambda: ArrangementSlotSpec(TreeArrangementSpec()),
     )
+    pool: list[PoolItemSpec] = trait(access=Access(0), default_factory=list)
 
     def __post_init__(self) -> None:
-        self.layout.count = self.count
+        self.arrangement.value.count = self.count
+        self.pool = [PoolItemSpec(
+            variants=Range(1),
+            value=PointSpec(color=self.color)
+        )]

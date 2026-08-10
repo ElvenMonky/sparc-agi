@@ -4,7 +4,6 @@ from sparc_agi.consts import MAX_COUNT
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature
 from sparc_agi.puzzle_spec.range import Range
 
-@register_feature("mapping")
 @dataclass
 class MappingSpec(FeatureSpec):
     key: str

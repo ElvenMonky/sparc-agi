@@ -55,17 +55,11 @@ class FeatureSpec:
         raise ValueError(f"{cls.__name__} is not registered")
 
     @classmethod
-    def trait_access(cls, name: str) -> Access:
-        for dc_field in fields(cls):
-            if dc_field.name == name:
-                return dc_field.metadata.get(ACCESS_KEY, Access.RW)
-        return Access(0)
-
-    @classmethod
     def trait_accesses(cls) -> dict[str, Access]:
         return {
-            dc_field.name: dc_field.metadata.get(ACCESS_KEY, Access.RW)
+            dc_field.name: dc_field.metadata[ACCESS_KEY]
             for dc_field in fields(cls)
+            if ACCESS_KEY in dc_field.metadata
         }
 
     @classmethod
@@ -84,8 +78,9 @@ class FeatureSpec:
     def unstructure(cls, inst: Self, converter: cattrs.Converter) -> dict[str, Any]:
         payload: dict[str, Any] = {}
         for dc_field in fields(cls):
-            if not (cls.trait_access(dc_field.name) & Access.SET):
-                continue
+            if ACCESS_KEY in dc_field.metadata:
+                if not (dc_field.metadata[ACCESS_KEY] & Access.SET):
+                    continue
             val = getattr(inst, dc_field.name)
             if val is None:
                 continue
@@ -107,5 +102,5 @@ def register_feature(name: str) -> Callable[[type[F]], type[F]]:
 @register_feature("filter")
 @dataclass
 class FilterSpec(FeatureSpec):
-    index: str = field(default_factory=lambda: "")
-    criteria: list[str] = field(default_factory=lambda: [])
+    index: list[int] = field(default_factory=list)
+    criteria: list[str] = field(default_factory=list)

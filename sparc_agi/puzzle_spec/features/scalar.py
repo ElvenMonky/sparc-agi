@@ -35,11 +35,6 @@ class WidthSpec(ScalarSpec):
 class HeightSpec(ScalarSpec):
     value: Range[1, MAX_SIZE] = trait(default_factory=Range)
 
-@register_feature("ratio")
-@dataclass
-class RatioSpec(ScalarSpec):
-    value: Range[1, MAX_SIZE] = trait(default_factory=Range)
-
 @register_feature("orientation")
 @dataclass
 class OrientationSpec(ScalarSpec):
