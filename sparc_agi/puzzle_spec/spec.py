@@ -1,11 +1,17 @@
 from dataclasses import dataclass, field
 
+from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.slot import CacheItemSpec, FeatureSlotSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec
-from sparc_agi.puzzle_spec.validate import validate_linked_mappings, validate_step_wires
+from sparc_agi.puzzle_spec.validate import (
+    trace_step_outputs,
+    validate_filter_wires,
+    validate_linked_mappings,
+    validate_step_wires,
+)
 
 @dataclass
 class InputSpec(FeatureSlotSpec[ObjectSpec]):
@@ -23,7 +29,10 @@ class PuzzleSpec:
     steps: list[TransformationSpec]
     cache: dict[str, CacheItemSpec] = field(default_factory=dict)
     palette: PaletteSpec = field(default_factory=PaletteSpec)
+    step_outputs: list[type[FeatureSpec]] = field(init=False, default_factory=list)
 
     def __post_init__(self) -> None:
+        self.step_outputs = trace_step_outputs(self)
         validate_linked_mappings(self)
         validate_step_wires(self)
+        validate_filter_wires(self)

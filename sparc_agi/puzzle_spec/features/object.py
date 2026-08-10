@@ -69,6 +69,7 @@ class GroupSpec(BaseGroupSpec):
 class GridSpec(BaseGroupSpec):
     arrangement: ArrangementSlotSpec = trait(default_factory=ArrangementSlotSpec(GridArrangementSpec()))
     pattern: PatternSlotSpec | None = trait(default=None)
+    mask: PatternSpec | None = trait(access=Access.GET, default=None)
 
 @register_feature("object.glyph")
 @dataclass
@@ -92,14 +93,10 @@ class GlyphSpec(GridSpec):
 
 @register_feature("object.sprite")
 @dataclass
-class SpriteSpec(GridSpec):
+class SpriteSpec(BaseGroupSpec):
     color: ColorSpec = trait(
         access=Access.SET,
         default_factory=ColorSpec
-    )
-    arrangement: ArrangementSlotSpec = trait(
-        access=Access.GET,
-        default_factory=lambda: ArrangementSlotSpec(GridArrangementSpec()),
     )
     pool: list[PoolItemSpec] = trait(access=Access(0), default_factory=list)
 

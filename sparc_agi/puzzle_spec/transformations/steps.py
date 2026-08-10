@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 
 from sparc_agi.puzzle_spec.features.arrangement import ArrangementSpec
-from sparc_agi.puzzle_spec.features.base import FilterSpec
-from sparc_agi.puzzle_spec.features.mapping import ColorMappingSpec
-from sparc_agi.puzzle_spec.features.object import ObjectSpec, GridSpec
+from sparc_agi.puzzle_spec.features.base import Access, FilterSpec
+from sparc_agi.puzzle_spec.features.mapping import MaskToColorMappingSpec, WidthToColorMappingSpec
+from sparc_agi.puzzle_spec.features.object import BaseGroupSpec, GridSpec, ObjectSpec
 from sparc_agi.puzzle_spec.features.pattern import PatternSpec
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, OrientationSpec
+from sparc_agi.puzzle_spec.filter import filter_ref
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef
 
@@ -14,7 +15,7 @@ from sparc_agi.puzzle_spec.wire import WireRef
 class RotateSpec(TransformationSpec[ObjectSpec]):
     orientation: WireRef[OrientationSpec]
     object: WireRef[ObjectSpec]
-    filter: WireRef[FilterSpec]
+    filter: WireRef[FilterSpec] = filter_ref((Access.SET, "orientation"), default=None)
 
 @register_transformation("ExtractArrangement")
 @dataclass
@@ -28,23 +29,31 @@ class ArrangeObjectsSpec(TransformationSpec[GridSpec]):
     pattern: WireRef[PatternSpec]
     pool: list[WireRef[ObjectSpec]]
 
-@register_transformation("ApplyColorMapping")
+@register_transformation("ApplyMaskToColorMapping")
 @dataclass
-class ApplyColorMappingSpec(TransformationSpec[ObjectSpec]):
-    mapping: WireRef[ColorMappingSpec]
+class ApplyMaskToColorMappingSpec(TransformationSpec[ObjectSpec]):
+    mapping: WireRef[MaskToColorMappingSpec]
     object: WireRef[ObjectSpec]
-    source_filter: WireRef[FilterSpec]
-    target_filter: WireRef[FilterSpec]
+    source_filter: WireRef[FilterSpec] = filter_ref((Access.GET, "mask"))
+    target_filter: WireRef[FilterSpec] = filter_ref((Access.SET, "color"))
+
+@register_transformation("ApplyWidthToColorMapping")
+@dataclass
+class ApplyWidthToColorMappingSpec(TransformationSpec[ObjectSpec]):
+    mapping: WireRef[WidthToColorMappingSpec]
+    object: WireRef[ObjectSpec]
+    source_filter: WireRef[FilterSpec] = filter_ref((Access.GET, "size.width"))
+    target_filter: WireRef[FilterSpec] = filter_ref((Access.SET, "color"))
 
 @register_transformation("ChangeColor")
 @dataclass
 class ChangeColorSpec(TransformationSpec[ObjectSpec]):
     color: WireRef[ColorSpec]
     object: WireRef[ObjectSpec]
-    filter: WireRef[FilterSpec]
+    filter: WireRef[FilterSpec] = filter_ref((Access.SET, "color"))
 
 @register_transformation("RemoveObjects")
 @dataclass
 class RemoveObjectsSpec(TransformationSpec[BaseGroupSpec]):
     object: WireRef[BaseGroupSpec]
-    filter: WireRef[FilterSpec]
+    filter: WireRef[FilterSpec] = filter_ref()

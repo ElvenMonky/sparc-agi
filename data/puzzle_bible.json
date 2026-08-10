@@ -76,8 +76,7 @@
         }
       },
       "c": {
-        "mapping.color": {
-          "key": "arrangement",
+        "mapping.mask_to_color": {
           "variants": 3,
           "value": [3, 5]
         }
@@ -122,7 +121,7 @@
     },
     "steps": [
       {
-        "ApplyColorMapping": ["c", 0, "a", "b"]
+        "ApplyMaskToColorMapping": ["c", 0, "a", "b"]
       },
       {
         "RemoveObjects": [0, "a"]
@@ -185,8 +184,7 @@
   "00dbd492": {
     "cache": {
       "a": {
-        "mapping.color": {
-          "key": "size.width",
+        "mapping.width_to_color": {
           "variants": 3,
           "value": [2, 4]
         }
@@ -229,7 +227,7 @@
     },
     "steps": [
       {
-        "ApplyColorMapping": ["a", 0, "b", "b"]
+        "ApplyWidthToColorMapping": ["a", 0, "b", "b"]
       }
     ]
   }

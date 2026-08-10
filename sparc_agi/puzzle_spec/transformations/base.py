@@ -1,4 +1,4 @@
-from dataclasses import dataclass, fields
+from dataclasses import MISSING, dataclass, fields
 from typing import Any, Callable, ClassVar, Self, TypeVar, get_args, get_origin
 
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
@@ -48,9 +48,15 @@ class TransformationSpec[Output: FeatureSpec]:
                 )
             return cls(*wires[:prefix_count], wires[prefix_count:])
         if len(wires) != len(dc_fields):
-            raise ValueError(
-                f"{cls.__name__} expects {len(dc_fields)} wires, got {len(wires)!r}"
-            )
+            if len(wires) > len(dc_fields):
+                raise ValueError(
+                    f"{cls.__name__} expects at most {len(dc_fields)} wires, got {len(wires)!r}"
+                )
+            for dc_field in dc_fields[len(wires):]:
+                if dc_field.default is MISSING and dc_field.default_factory is MISSING:
+                    raise ValueError(
+                        f"{cls.__name__} expects {len(dc_fields)} wires, got {len(wires)!r}"
+                    )
         return cls(*wires)
 
     def unstructure(self) -> list[WireValue]:
@@ -58,8 +64,14 @@ class TransformationSpec[Output: FeatureSpec]:
         if dc_fields and get_origin(dc_fields[-1].type) is list:
             wires = [getattr(self, dc_field.name) for dc_field in dc_fields[:-1]]
             wires.extend(getattr(self, dc_fields[-1].name))
-            return wires
-        return [getattr(self, dc_field.name) for dc_field in dc_fields]
+        else:
+            wires = [getattr(self, dc_field.name) for dc_field in dc_fields]
+        while wires and wires[-1] is None:
+            tail_field = dc_fields[len(wires) - 1]
+            if tail_field.default is MISSING and tail_field.default_factory is MISSING:
+                break
+            wires.pop()
+        return wires
 
     @classmethod
     def structure_step(cls, value: object, _: type, __: Any) -> Self:
