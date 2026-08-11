@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 
-from sparc_agi.consts import MAX_COUNT
+from sparc_agi.consts import MAX_COLOR, MAX_COUNT
+from sparc_agi.puzzle_spec.context import PuzzleContext
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec, register_feature, trait
 from sparc_agi.puzzle_spec.features.cut import CutSpec
 from sparc_agi.puzzle_spec.features.arrangement import (
@@ -12,7 +13,7 @@ from sparc_agi.puzzle_spec.features.arrangement import (
     TreeArrangementSpec,
 )
 from sparc_agi.puzzle_spec.features.pattern import PatternSlotSpec, PatternSpec
-from sparc_agi.puzzle_spec.features.margin import MarginSpec
+from sparc_agi.puzzle_spec.features.margin import MarginSpec, group_spacing_phrase
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, CountSpec, HeightSpec, OrientationSpec, WidthSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
@@ -20,12 +21,17 @@ from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 @register_feature("object")
 @dataclass
 class ObjectSpec(FeatureSpec):
-    color: ColorSpec = trait(default_factory=ColorSpec)
+    color: ColorSpec = trait(default_factory=lambda: ColorSpec(value=Range(1, MAX_COLOR)))
     margin: MarginSpec = trait(default_factory=MarginSpec)
     orientation: OrientationSpec | None = trait(default=None)
     origin: OriginSpec | None = trait(default=None)
     size: SizeSpec = trait(default_factory=SizeSpec)
     linked_mappings: list[str] = field(default_factory=list)
+
+    def describe(self, ctx: PuzzleContext) -> str:
+        if phrase := self.color.describe(ctx):
+            return f"{phrase} {self.kind_noun()}"
+        return self.kind_noun()
 
 @dataclass
 class PoolItemSpec(FeatureSlotSpec[ObjectSpec]):
@@ -56,6 +62,17 @@ class LineSpec(GeometrySpec):
 class RectangleSpec(GeometrySpec):
     cut: CutSpec = trait(default_factory=CutSpec)
 
+    def describe(self, ctx: PuzzleContext) -> str:
+        base = f"{self.size.describe(ctx)} rectangle" if not self.is_default("size") else "rectangle"
+        if edge := self.edge_color:
+            if color := edge.describe(ctx):
+                base += f" with {color} edge"
+            else:
+                base += " with edge"
+        if phrase := self.color.describe(ctx):
+            return f"{phrase} {base}"
+        return base
+
 @dataclass
 class BaseGroupSpec(ObjectSpec):
     pool: list[PoolItemSpec] = trait(access=Access.SET, default_factory=list)
@@ -65,6 +82,14 @@ class BaseGroupSpec(ObjectSpec):
 class GroupSpec(BaseGroupSpec):
     count: CountSpec = trait(default_factory=CountSpec)
     draft: PatternSpec | None = trait(default=None)
+
+    def describe(self, ctx: PuzzleContext) -> str:
+        count = self.count.value.describe()
+        members = " and ".join(item.value.describe(ctx) for item in self.pool if item.value is not None)
+        head = f"group of {count} {members}"
+        if not self.is_default("size"):
+            head += f" arranged randomly within {self.size.describe(ctx)} area"
+        return head + group_spacing_phrase(self.margin, self.pool, ctx)
 
 @register_feature("object.grid")
 @dataclass
@@ -98,12 +123,22 @@ class GlyphSpec(GridSpec):
 class SpriteSpec(BaseGroupSpec):
     color: ColorSpec = trait(
         access=Access.SET,
-        default_factory=ColorSpec
+        default_factory=ColorSpec,
     )
     pool: list[PoolItemSpec] = trait(access=Access(0), default_factory=list)
 
     def __post_init__(self) -> None:
+        value = self.color.value
+        if value.lo < 0 or value.hi > MAX_COLOR:
+            raise ValueError(f"sprite color must be in 0..{MAX_COLOR}, got {value.describe()}")
+        if len(range(value.lo, value.hi + 1, value.step)) < 2:
+            raise ValueError(f"sprite color must allow at least 2 colors, got {value.describe()}")
         self.pool = [PoolItemSpec(value=PointSpec(color=self.color))]
+
+    def describe(self, ctx: PuzzleContext) -> str:
+        if not self.is_default("size"):
+            return f"{self.size.describe(ctx)} sprite"
+        return "sprite"
 
 @register_feature("object.tree_structure")
 @dataclass
@@ -122,3 +157,6 @@ class TreeStructureSpec(BaseGroupSpec):
                 variants=Range(1),
                 value=PointSpec(color=self.color),
             )]
+
+    def kind_noun(self) -> str:
+        return "tree structure"

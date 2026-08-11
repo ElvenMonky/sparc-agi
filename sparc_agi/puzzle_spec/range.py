@@ -60,3 +60,10 @@ class Range[Min: int, Max: int]:
 
     def instantiate(self, rng: random.Random) -> int:
         return rng.randrange(self.lo, self.hi + 1, self.step)
+
+    def describe(self) -> str:
+        if self.lo == self.hi and self.step == 1:
+            return str(self.lo)
+        if self.step == 1:
+            return f"{self.lo}..{self.hi}"
+        return f"{self.lo}..{self.hi} step {self.step}"

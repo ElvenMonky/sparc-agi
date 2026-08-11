@@ -4,6 +4,8 @@ from typing import Any, Callable, ClassVar, Self, TypeVar
 
 import cattrs
 
+from sparc_agi.puzzle_spec.context import PuzzleContext
+
 ACCESS_KEY = "access"
 
 class Access(IntFlag):
@@ -71,6 +73,24 @@ class FeatureSpec:
         return frozenset(
             name for name, access in cls.trait_accesses().items() if access & Access.SET
         )
+
+    def kind_noun(self) -> str:
+        return type(self).tag().rsplit(".", 1)[-1].replace("_", " ")
+
+    def is_default(self, field_name: str) -> bool:
+        for dc_field in fields(self):
+            if dc_field.name != field_name:
+                continue
+            val = getattr(self, dc_field.name)
+            if dc_field.default_factory is not MISSING:
+                return val == dc_field.default_factory()
+            if dc_field.default is not MISSING:
+                return val == dc_field.default
+            return False
+        raise AttributeError(f"{type(self).__name__} has no field {field_name!r}")
+
+    def describe(self, ctx: PuzzleContext) -> str:
+        return type(self).tag()
 
     @classmethod
     def unstructure(cls, inst: Self, converter: cattrs.Converter) -> dict[str, Any]:

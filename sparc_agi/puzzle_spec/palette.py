@@ -4,6 +4,8 @@ from typing import Any, Self
 
 from sparc_agi.consts import MAX_COLOR
 
+Palette = tuple[int, int, int, int, int, int, int, int, int, int]
+
 @dataclass(frozen=True)
 class PaletteSpec:
     fixed: dict[int, int] = field(default_factory=dict)
@@ -37,11 +39,10 @@ class PaletteSpec:
     def unstructure(self) -> dict[str, int]:
         return {str(key): value for key, value in self.fixed.items()}
 
-    def instantiate(self, rng: random.Random) -> tuple[int, int, int, int, int, int, int, int, int, int]:
+    def instantiate(self, rng: random.Random) -> Palette:
         free = [color for color in range(MAX_COLOR + 1) if color not in self.fixed.values()]
         rng.shuffle(free)
-        colors = tuple(
+        return tuple(
             self.fixed[key] if key in self.fixed else free.pop()
             for key in range(MAX_COLOR + 1)
         )
-        return colors
