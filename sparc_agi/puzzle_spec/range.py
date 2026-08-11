@@ -61,9 +61,16 @@ class Range[Min: int, Max: int]:
     def instantiate(self, rng: random.Random) -> int:
         return rng.randrange(self.lo, self.hi + 1, self.step)
 
+    def is_fixed(self) -> bool:
+        return self.lo == self.hi
+
     def describe(self) -> str:
-        if self.lo == self.hi and self.step == 1:
+        if self.is_fixed():
             return str(self.lo)
         if self.step == 1:
-            return f"{self.lo}..{self.hi}"
-        return f"{self.lo}..{self.hi} step {self.step}"
+            return f"{self.lo}-{self.hi}"
+        if self.step == 2:
+            parity = "even" if self.lo % 2 == 0 else "odd"
+            return f"{self.lo}-{self.hi} ({parity})"
+        n_max = (self.hi - self.lo) // self.step
+        return f"{self.step}xN+{self.lo} (N=0..{n_max})"

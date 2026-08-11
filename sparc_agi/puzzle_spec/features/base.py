@@ -5,6 +5,7 @@ from typing import Any, Callable, ClassVar, Self, TypeVar
 import cattrs
 
 from sparc_agi.puzzle_spec.context import PuzzleContext
+from sparc_agi.puzzle_spec.range import Range
 
 ACCESS_KEY = "access"
 
@@ -74,8 +75,21 @@ class FeatureSpec:
             name for name, access in cls.trait_accesses().items() if access & Access.SET
         )
 
-    def kind_noun(self) -> str:
-        return type(self).tag().rsplit(".", 1)[-1].replace("_", " ")
+    @staticmethod
+    def is_plural(count: Range | int | None) -> bool:
+        if count is None:
+            return False
+        if isinstance(count, Range):
+            return not (count.lo == count.hi == 1)
+        return count != 1
+
+    def kind_noun(self, count: Range | int | None = None) -> str:
+        noun = type(self).tag().rsplit(".", 1)[-1].replace("_", " ")
+        if count is None:
+            return noun
+        if not self.is_plural(count):
+            return noun
+        return f"{noun}es" if noun.endswith("s") else f"{noun}s"
 
     def is_default(self, field_name: str) -> bool:
         for dc_field in fields(self):

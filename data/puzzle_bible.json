@@ -152,7 +152,8 @@
                 {
                   "object.rectangle": {
                     "margin": -1,
-                    "edge_color": 1,
+                    "color": 1,
+                    "fill_color": -1,
                     "size": {
                       "width": [2, 8],
                       "height": [2, 8]
@@ -209,7 +210,8 @@
                 "height": [5, 9, 2],
                 "ratio": 1
               },
-              "edge_color": 1,
+              "color": 1,
+              "fill_color": -1,
               "origin": {
                 "color": 1
               }
