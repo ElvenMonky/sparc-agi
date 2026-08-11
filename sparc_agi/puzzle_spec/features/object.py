@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
 from sparc_agi.consts import MAX_COLOR, MAX_COUNT, TRANSPARENT_COLOR
-from sparc_agi.puzzle_spec.context import PuzzleContext
+from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec, register_feature, trait
 from sparc_agi.puzzle_spec.features.cut import CutSpec
 from sparc_agi.puzzle_spec.features.arrangement import (
@@ -35,7 +35,7 @@ class ObjectSpec(FeatureSpec):
 
     def describe_head(
         self,
-        ctx: PuzzleContext,
+        ctx: Puzzle,
         *,
         count: Range | int | None = None,
         article: bool = False,
@@ -49,12 +49,12 @@ class ObjectSpec(FeatureSpec):
             head = with_article(head)
         return head
 
-    def describe_tail(self, ctx: PuzzleContext) -> str:
+    def describe_tail(self, ctx: Puzzle) -> str:
         if self.origin is not None:
             return self.origin.describe(ctx)
         return ""
 
-    def describe(self, ctx: PuzzleContext, *, count: Range | int | None = None, article: bool = False) -> str:
+    def describe(self, ctx: Puzzle, *, count: Range | int | None = None, article: bool = False) -> str:
         return self.describe_head(ctx, count=count, article=article) + self.describe_tail(ctx)
 
 @dataclass
@@ -86,7 +86,7 @@ class LineSpec(GeometrySpec):
 class RectangleSpec(GeometrySpec):
     cut: CutSpec = trait(default_factory=CutSpec)
 
-    def describe(self, ctx: PuzzleContext, *, count: Range | int | None = None, article: bool = False) -> str:
+    def describe(self, ctx: Puzzle, *, count: Range | int | None = None, article: bool = False) -> str:
         body = self.describe_head(ctx, count=count, article=article)
         if fill := self.fill_color:
             value = fill.value
@@ -113,7 +113,7 @@ class GroupSpec(BaseGroupSpec):
     count: CountSpec = trait(default_factory=CountSpec)
     draft: PatternSpec | None = trait(default=None)
 
-    def describe(self, ctx: PuzzleContext) -> str:
+    def describe(self, ctx: Puzzle) -> str:
         count = self.count.value
         prefix = self.draft.prefix if self.draft else []
         parts: list[str] = []
@@ -210,7 +210,7 @@ class TreeStructureSpec(BaseGroupSpec):
             return True
         return value.color != self.color
 
-    def describe(self, ctx: PuzzleContext, *, count: Range | int | None = None, article: bool = False) -> str:
+    def describe(self, ctx: Puzzle, *, count: Range | int | None = None, article: bool = False) -> str:
         body = self.describe_head(ctx, count=count, article=article) + self.describe_tail(ctx)
         if self._has_custom_pool():
             members = " and ".join(

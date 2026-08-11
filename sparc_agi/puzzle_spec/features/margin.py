@@ -3,7 +3,7 @@ from dataclasses import InitVar, dataclass, field
 from typing import Any
 
 from sparc_agi.consts import MAX_SIZE
-from sparc_agi.puzzle_spec.context import PuzzleContext
+from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature
 from sparc_agi.puzzle_spec.range import Range
 
@@ -53,7 +53,7 @@ class MarginSpec(FeatureSpec):
             self.bottom.instantiate(rng),
         )
 
-    def describe(self, ctx: PuzzleContext) -> str:
+    def describe(self, ctx: Puzzle) -> str:
         if self.left == self.right == self.top == self.bottom:
             return self.left.describe()
         if self.left == self.right and self.top == self.bottom:

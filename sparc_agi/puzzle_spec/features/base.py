@@ -4,7 +4,7 @@ from typing import Any, Callable, ClassVar, Self, TypeVar
 
 import cattrs
 
-from sparc_agi.puzzle_spec.context import PuzzleContext
+from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.range import Range
 
 ACCESS_KEY = "access"
@@ -103,7 +103,7 @@ class FeatureSpec:
             return False
         raise AttributeError(f"{type(self).__name__} has no field {field_name!r}")
 
-    def describe(self, ctx: PuzzleContext) -> str:
+    def describe(self, ctx: Puzzle) -> str:
         return type(self).tag()
 
     @classmethod

@@ -28,11 +28,11 @@ def describe_source(
     rng = random.Random(seed) if seed is not None else None
     records: dict[str, DescriptionRecord] = {}
     for puzzle_id, puzzle in repo.puzzles.items():
-        description = puzzle.describe(rng)
+        ctx = puzzle.instantiate(rng)
         records[puzzle_id] = DescriptionRecord(
-            input=description.input,
-            steps=description.steps,
-            palette=list(description.ctx.palette),
+            input=ctx.input,
+            steps=list(ctx.steps),
+            palette=list(ctx.palette),
         )
     output_path.write_text(json.dumps(
         {puzzle_id: asdict(record) for puzzle_id, record in records.items()},

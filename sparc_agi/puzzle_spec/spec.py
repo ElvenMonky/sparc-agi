@@ -1,7 +1,7 @@
 import random
 from dataclasses import dataclass, field
 
-from sparc_agi.puzzle_spec.context import PuzzleContext
+from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec, with_article
 from sparc_agi.puzzle_spec.palette import PaletteSpec
@@ -25,12 +25,6 @@ class SamplesSpec:
     test: Range[1, 3]
 
 @dataclass
-class PuzzleDescription:
-    ctx: PuzzleContext
-    input: str
-    steps: list[str] = field(default_factory=list)
-
-@dataclass
 class PuzzleSpec:
     input: InputSpec
     samples: SamplesSpec
@@ -45,15 +39,11 @@ class PuzzleSpec:
         validate_step_wires(self)
         validate_filter_wires(self)
 
-    def describe(self, rng: random.Random | None = None) -> PuzzleDescription:
-        ctx = PuzzleContext(
-            palette=self.palette.instantiate(rng or random.Random()),
-            step_outputs=tuple(self.step_outputs),
-        )
-        body = self.input.value.describe(ctx)
+    def instantiate(self, rng: random.Random | None = None):
+        palette = self.palette.instantiate(rng or random.Random())
+        puzzle = Puzzle(spec=self, palette=palette, input="", steps=())
+        body = self.input.value.describe(puzzle)
         if not body.startswith(("a ", "an ")):
             body = with_article(body)
-        return PuzzleDescription(
-            ctx=ctx,
-            input=f"Puzzle input consists of {body}.",
-        )
+        puzzle.input = f"Puzzle input consists of {body}."
+        return puzzle

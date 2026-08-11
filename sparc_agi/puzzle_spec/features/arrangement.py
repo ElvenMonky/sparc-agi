@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from sparc_agi.consts import MAX_ORIENTATION, MAX_SIZE
-from sparc_agi.puzzle_spec.context import PuzzleContext
+from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, CountSpec, HeightSpec, OrientationSpec, WidthSpec
 from sparc_agi.puzzle_spec.range import Range
@@ -19,7 +19,7 @@ class SizeSpec(FeatureSpec):
     def is_fixed(self) -> bool:
         return self.width.value.is_fixed() and self.height.value.is_fixed()
 
-    def describe(self, ctx: PuzzleContext) -> str | None:
+    def describe(self, ctx: Puzzle) -> str | None:
         if not self.is_fixed():
             return None
         return f"{self.width.value.describe()}x{self.height.value.describe()}"
@@ -35,7 +35,7 @@ class PositionSpec(FeatureSpec):
 class OriginSpec(PositionSpec):
     color: ColorSpec | None = trait(default=None)
 
-    def describe(self, ctx: PuzzleContext) -> str:
+    def describe(self, ctx: Puzzle) -> str:
         if self.color and (phrase := self.color.describe(ctx)):
             return f" with {phrase} point at origin"
         return " with point at origin"

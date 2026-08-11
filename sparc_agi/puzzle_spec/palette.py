@@ -4,7 +4,7 @@ from typing import Any, Self
 
 from sparc_agi.consts import MAX_COLOR
 
-Palette = tuple[int, int, int, int, int, int, int, int, int, int]
+from sparc_agi.puzzle.palette import Palette
 
 @dataclass(frozen=True)
 class PaletteSpec:
