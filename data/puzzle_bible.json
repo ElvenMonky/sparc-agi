@@ -2,20 +2,20 @@
   "00576224": {
     "cache": {
       "a": {
-        "orientation": 12
+        "orientation": [8, 15, 2]
       },
       "b": {
         "arrangement.grid": {
           "size": {
-            "width": 3,
-            "height": 3
+            "width": [3, 4],
+            "height": [3, 4]
           }
         }
       },
       "c": {
         "pattern.linear": {
-          "direction": 2,
-          "pattern": [0, 1, 0]
+          "direction": [0, 7, 2],
+          "pattern": [0, 1]
         }
       }
     },
@@ -76,7 +76,7 @@
         }
       },
       "c": {
-        "mapping.mask_to_color": {
+        "mapping.arrangement_to_color": {
           "variants": 3,
           "value": [3, 5]
         }
@@ -136,7 +136,7 @@
         }
       },
       "b": {
-        "color": 2
+        "color": [2, 9]
       }
     },
     "input": {

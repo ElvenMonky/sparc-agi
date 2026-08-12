@@ -137,7 +137,6 @@ class GroupSpec(BaseGroupSpec):
 class GridSpec(BaseGroupSpec):
     arrangement: ArrangementSlotSpec = trait(default_factory=ArrangementSlotSpec(GridArrangementSpec()))
     pattern: PatternSlotSpec | None = trait(default=None)
-    mask: PatternSpec | None = trait(access=Access.GET, default=None)
 
 @register_feature("object.glyph")
 @dataclass

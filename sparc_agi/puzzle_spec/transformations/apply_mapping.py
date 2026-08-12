@@ -7,7 +7,6 @@ from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec, MaskToColorMappingSpec, WidthToColorMappingSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
-from sparc_agi.puzzle_spec.features.scalar import ColorSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef, filter_ref
 
@@ -52,8 +51,17 @@ class ApplyMappingSpec[Mapping: MappingSpec](TransformationSpec[ObjectSpec]):
             raise ValueError(
                 f"{cls.tag()}: {type(target).tag()} lacks settable trait {target_trait!r}"
             )
-        source.get_trait(source_trait)
-        target.set_trait(target_trait, ColorSpec(value=mapping.value))
+        trait = source.get_trait(source_trait)
+        if trait is None:
+            raise ValueError(
+                f"{cls.tag()}: {type(source).tag()} has no value at trait {source_trait!r}"
+            )
+        trait = target.get_trait(target_trait)
+        if trait is None:
+            raise ValueError(
+                f"{cls.tag()}: {type(target).tag()} has no value at trait {target_trait!r}"
+            )
+        target.set_trait(target_trait, type(trait)(value=mapping.value))
         target.alias = f"mapped {target.kind_noun()}"
         return root
 

@@ -12,10 +12,10 @@ class MappingSpec(FeatureSpec):
     value: Range
     variants: Range[1, MAX_COUNT] | None = field(default=None)
 
-@register_feature("mapping.mask_to_color")
+@register_feature("mapping.arrangement_to_color")
 @dataclass
 class MaskToColorMappingSpec(MappingSpec):
-    source_trait = "mask"
+    source_trait = "arrangement"
     target_trait = "color"
 
 @register_feature("mapping.width_to_color")
