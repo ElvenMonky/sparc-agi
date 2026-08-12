@@ -124,7 +124,7 @@
         "ApplyMaskToColorMapping": ["c", 0, "a", "b"]
       },
       {
-        "RemoveObjects": [0, "a"]
+        "RemoveObjects": [1, "a"]
       }
     ]
   },
@@ -178,7 +178,7 @@
     },
     "steps": [
       {
-        "ChangeColor": ["b", 0, "a"]
+        "ChangeFillColor": ["b", 0, "a"]
       }
     ]
   },
@@ -229,7 +229,7 @@
     },
     "steps": [
       {
-        "ApplyWidthToColorMapping": ["a", 0, "b", "b"]
+        "ApplyWidthToFillColorMapping": ["a", 0, "b", "b"]
       }
     ]
   }

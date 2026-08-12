@@ -1,54 +1,12 @@
 from collections.abc import Iterator
 from dataclasses import fields
-from typing import Any, get_args, get_origin
+from typing import get_args, get_origin
 
-from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
+from sparc_agi.puzzle_spec.features.base import Access
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
-from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
-from sparc_agi.puzzle_spec.wire import FILTER_BINDING_KEY, WireRef, WireValue
-
-def _unwrap_optional(hint: type) -> type:
-    args = get_args(hint)
-    if args and type(None) in args:
-        return next(arg for arg in args if arg is not type(None))
-    return hint
-
-def _nested_spec_type(spec_cls: type[FeatureSpec], trait_name: str) -> type[FeatureSpec] | None:
-    for dc_field in fields(spec_cls):
-        if dc_field.name != trait_name:
-            continue
-        hint = _unwrap_optional(dc_field.type)
-        origin = get_origin(hint)
-        if origin is FeatureSlotSpec:
-            inner = get_args(hint)[0]
-            if FeatureSpec.is_feature(inner):
-                return inner
-        if FeatureSpec.is_feature(hint):
-            return hint
-    return None
-
-def _trait_access(spec_cls: type[FeatureSpec], path: str) -> Access | None:
-    parts = path.split(".")
-    cls = spec_cls
-    for index, part in enumerate(parts):
-        accesses = cls.trait_accesses()
-        if part not in accesses:
-            return None
-        if index == len(parts) - 1:
-            return accesses[part]
-        nested = _nested_spec_type(cls, part)
-        if nested is None:
-            return None
-        cls = nested
-    return None
-
-def has_trait_access(spec_cls: type[FeatureSpec], path: str, access: Access) -> bool:
-    trait_access = _trait_access(spec_cls, path)
-    if trait_access is None:
-        return False
-    return bool(trait_access & access)
+from sparc_agi.puzzle_spec.wire import FILTER_BINDING_KEY, WireRef
 
 def iter_input_objects(root: ObjectSpec) -> Iterator[ObjectSpec]:
     yield root
@@ -75,7 +33,7 @@ def validate_linked_mappings(puzzle) -> None:
                     f"must be a mapping, got {type(mapping).tag()!r}"
                 )
             source_trait = type(mapping).source_trait
-            if source_trait is not None and not has_trait_access(spec_cls, source_trait, Access.GET):
+            if source_trait is not None and not spec_cls.has_trait_access(source_trait, Access.GET):
                 raise ValueError(
                     f"{spec_cls.tag()} linked_mappings cache key {cache_key!r} "
                     f"requires gettable trait {source_trait!r}"
@@ -105,6 +63,30 @@ def validate_step_wires(puzzle) -> None:
                     raise ValueError(
                         f"{label}: resolved to {actual.tag()}, expected {spec_type.tag()}"
                     )
+
+def validate_step_outputs(puzzle) -> None:
+    referenced: set[int] = set()
+    for step in puzzle.steps:
+        for dc_field in fields(type(step)):
+            if WireRef.spec_type(dc_field.type) is None:
+                continue
+            value = getattr(step, dc_field.name)
+            wires = value if get_origin(dc_field.type) is list else [value]
+            for wire in wires:
+                if isinstance(wire, int):
+                    referenced.add(wire)
+    unused = set(range(len(puzzle.steps))) - referenced
+    if unused:
+        labels = ", ".join(
+            f"wire {wire} ({'input' if wire == 0 else f'output of step {wire}'})"
+            for wire in sorted(unused)
+        )
+        raise ValueError(f"unreferenced step outputs: {labels}")
+    final = puzzle.step_outputs[-1]
+    if not isinstance(final, ObjectSpec):
+        raise ValueError(
+            f"final output must be an object, got {type(final).tag()}"
+        )
 
 def validate_filter_wires(puzzle) -> None:
     for step_index, step in enumerate(puzzle.steps):
@@ -146,7 +128,7 @@ def validate_filter_wires(puzzle) -> None:
                 raise ValueError(f"{label}: filter {at} resolves to missing pool item")
             access, trait = binding
             spec_cls = type(target)
-            if not has_trait_access(spec_cls, trait, access):
+            if not spec_cls.has_trait_access(trait, access):
                 need = "gettable" if access & Access.GET else "settable"
                 if access == Access.RW:
                     need = "gettable/settable"

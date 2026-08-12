@@ -63,7 +63,7 @@ class ArrangeObjectsSpec(TransformationSpec[GridSpec]):
         pattern: PatternSpec | None,
         pool: list[ObjectSpec],
     ) -> str:
-        refs = [obj.refer(ctx) for obj in pool]
+        refs = [f"{obj.refer(ctx)} ({index})" for index, obj in enumerate(pool)]
         if not refs:
             copies = "no items"
         elif len(refs) == 1:

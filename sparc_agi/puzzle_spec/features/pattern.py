@@ -11,6 +11,13 @@ from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.sequence import Sequence
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 
+_LINEAR_DIRECTION = (
+    "left-to-right",
+    "top-to-bottom",
+    "right-to-left",
+    "bottom-to-top",
+)
+
 @register_feature("pattern")
 @dataclass
 class PatternSpec(FeatureSpec):
@@ -55,3 +62,15 @@ class PatternSlotSpec(FeatureSlotSpec[PatternSpec]):
 @dataclass
 class LinearPatternSpec(PatternSpec):
     direction: OrientationSpec = trait(default_factory=lambda: OrientationSpec(Range(0)))
+
+    def describe(self, ctx: Puzzle) -> str:
+        body = super().describe(ctx)
+        if not body:
+            return ""
+        direction = self.direction.value
+        if direction.lo != direction.hi:
+            return body
+        phrase = _LINEAR_DIRECTION[(direction.lo % 8) // 2]
+        if phrase:
+            return f"{phrase} {body}"
+        return body

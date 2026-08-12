@@ -4,7 +4,6 @@ from typing import Any, get_args, get_origin
 
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, with_article
-from sparc_agi.puzzle_spec.features.mapping import MappingSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
@@ -13,6 +12,7 @@ from sparc_agi.puzzle_spec.transformations.base import TransformationSpec
 from sparc_agi.puzzle_spec.validate import (
     validate_filter_wires,
     validate_linked_mappings,
+    validate_step_outputs,
     validate_step_wires,
 )
 from sparc_agi.puzzle_spec.wire import WireRef, WireValue
@@ -64,12 +64,6 @@ class PuzzleSpec:
         return input
 
     def __post_init__(self) -> None:
-        for item in self.cache.values():
-            spec = item.value
-            if isinstance(spec, MappingSpec) or spec.alias is not None:
-                continue
-            noun = spec.tag().rsplit(".", 1)[-1].replace("_", " ")
-            spec.alias = f"hidden {noun}"
         self.step_outputs = [self.input.value]
         self.step_outputs[0].alias = f"input {self.step_outputs[0].kind_noun()}"
         for step_index, step in enumerate(self.steps):
@@ -89,6 +83,7 @@ class PuzzleSpec:
         validate_linked_mappings(self)
         validate_step_wires(self)
         validate_filter_wires(self)
+        validate_step_outputs(self)
 
     def instantiate(self, rng: random.Random | None = None):
         palette = self.palette.instantiate(rng or random.Random())

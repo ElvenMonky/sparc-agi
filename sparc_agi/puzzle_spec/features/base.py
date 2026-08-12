@@ -1,6 +1,6 @@
 from dataclasses import MISSING, Field, dataclass, field, fields
 from enum import IntFlag
-from typing import Any, Callable, ClassVar, Self, TypeVar
+from typing import Any, Callable, ClassVar, Self, TypeVar, get_args
 
 import cattrs
 
@@ -92,6 +92,40 @@ class FeatureSpec:
         return frozenset(
             name for name, access in cls.trait_accesses().items() if access & Access.SET
         )
+
+    @classmethod
+    def has_trait_access(cls, path: str, access: Access) -> bool:
+        parts = path.split(".")
+        spec_cls: type[FeatureSpec] = cls
+        for index, part in enumerate(parts):
+            accesses = spec_cls.trait_accesses()
+            if part not in accesses:
+                return False
+            if index == len(parts) - 1:
+                return bool(accesses[part] & access)
+            nested: type[FeatureSpec] | None = None
+            for dc_field in fields(spec_cls):
+                if dc_field.name != part:
+                    continue
+                hint = dc_field.type
+                args = get_args(hint)
+                if args and type(None) in args:
+                    hint = next(arg for arg in args if arg is not type(None))
+                if cls.is_feature(hint):
+                    nested = hint
+                else:
+                    inner_args = get_args(hint)
+                    if inner_args and cls.is_feature(inner_args[0]):
+                        nested = inner_args[0]
+                    elif isinstance(hint, type) and hasattr(hint, "_value_type"):
+                        inner = hint._value_type()
+                        if cls.is_feature(inner):
+                            nested = inner
+                break
+            if nested is None:
+                return False
+            spec_cls = nested
+        return False
 
     @staticmethod
     def is_plural(count: Range | int | None) -> bool:
