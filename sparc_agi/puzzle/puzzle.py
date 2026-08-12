@@ -7,8 +7,12 @@ if TYPE_CHECKING:
     from sparc_agi.puzzle_spec.spec import PuzzleSpec
 
 @dataclass
+class PuzzleDescription:
+    input: str
+    steps: tuple[str, ...]
+
+@dataclass
 class Puzzle:
     spec: PuzzleSpec
     palette: Palette
-    input: str
-    steps: tuple[str, ...]
+    description: PuzzleDescription | None = None

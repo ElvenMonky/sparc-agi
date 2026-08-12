@@ -2,6 +2,7 @@ import random
 from dataclasses import dataclass
 
 from sparc_agi.consts import MAX_COLOR, MAX_COUNT, MAX_ORIENTATION, MAX_SIZE, TRANSPARENT_COLOR
+from sparc_agi.puzzle.features.base import Scalar
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait
 from sparc_agi.puzzle_spec.range import Range
@@ -26,8 +27,9 @@ class ScalarSpec(FeatureSpec):
     def unstructure(self) -> int | list[int]:
         return self.value.unstructure()
 
-    def instantiate(self, rng: random.Random) -> int:
-        return self.value.instantiate(rng)
+    def instantiate(self, rng: random.Random) -> Scalar:
+        del rng
+        return Scalar(spec=self, value=0)
 
     def describe(self, ctx: Puzzle) -> str:
         return f"{type(self).tag()} {self.value.describe()}"

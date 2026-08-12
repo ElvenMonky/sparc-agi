@@ -2,7 +2,7 @@ import random
 from dataclasses import dataclass, field, fields
 from typing import Any, get_args, get_origin
 
-from sparc_agi.puzzle.puzzle import Puzzle
+from sparc_agi.puzzle.puzzle import Puzzle, PuzzleDescription
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, with_article
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
@@ -87,15 +87,17 @@ class PuzzleSpec:
 
     def instantiate(self, rng: random.Random | None = None):
         palette = self.palette.instantiate(rng or random.Random())
-        puzzle = Puzzle(spec=self, palette=palette, input="", steps=())
-        body = self.input.value.describe(puzzle)
+        ctx = Puzzle(spec=self, palette=palette)
+        body = self.input.value.describe(ctx)
         if not body.startswith(("a ", "an ")):
             body = with_article(body)
-        puzzle.input = f"Puzzle input consists of {body}."
         steps: list[str] = []
         for step_index, step in enumerate(self.steps):
             input = self.get_input(step, step_index)
-            if text := step.describe(puzzle, **input):
+            if text := step.describe(ctx, **input):
                 steps.append(text)
-        puzzle.steps = tuple(steps)
-        return puzzle
+        ctx.description = PuzzleDescription(
+            input=f"Puzzle input consists of {body}.",
+            steps=tuple(steps),
+        )
+        return ctx

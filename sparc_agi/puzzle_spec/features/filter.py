@@ -1,5 +1,7 @@
+import random
 from dataclasses import dataclass, field
 
+from sparc_agi.puzzle.features.base import Filter
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature
 from sparc_agi.puzzle_spec.features.object import ObjectSpec, PoolItemSpec
@@ -31,6 +33,10 @@ class FilterSpec(FeatureSpec):
 
     def target(self, root: ObjectSpec) -> ObjectSpec | None:
         return self.apply(PoolItemSpec(value=root)).value
+
+    def instantiate(self, rng: random.Random) -> Filter:
+        del rng
+        return Filter(spec=self)
 
     def refer_target(self, ctx: Puzzle, root: ObjectSpec) -> str:
         obj = self.target(root)

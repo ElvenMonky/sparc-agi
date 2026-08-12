@@ -1,7 +1,9 @@
+import random
 from dataclasses import dataclass, field
 from typing import Literal
 
 from sparc_agi.consts import MAX_ORIENTATION, MAX_SIZE
+from sparc_agi.puzzle.features.base import Arrangement
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait, with_article
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, CountSpec, HeightSpec, OrientationSpec, WidthSpec
@@ -45,6 +47,10 @@ class OriginSpec(PositionSpec):
 class ArrangementSpec(FeatureSpec):
     count: CountSpec | None = trait(default=None)
     size: SizeSpec | None = trait(default=None)
+
+    def instantiate(self, rng: random.Random) -> Arrangement:
+        del rng
+        return Arrangement(spec=self, value=0)
 
     def describe(self, ctx: Puzzle) -> str:
         if self.size is not None and (phrase := self.size.describe(ctx)):

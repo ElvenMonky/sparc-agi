@@ -1,6 +1,8 @@
+import random
 from dataclasses import dataclass, field
 
 from sparc_agi.consts import MAX_COLOR, MAX_COUNT, TRANSPARENT_COLOR
+from sparc_agi.puzzle.features.base import Geometry
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec, register_feature, trait, with_article
 from sparc_agi.puzzle_spec.features.cut import CutSpec
@@ -51,6 +53,10 @@ class ObjectSpec(FeatureSpec):
 
     def describe(self, ctx: Puzzle, *, count: Range | int | None = None, article: bool = False) -> str:
         return self.describe_head(ctx, count=count, article=article) + self.describe_tail(ctx)
+
+    def instantiate(self, rng: random.Random) -> Geometry:
+        del rng
+        return Geometry(spec=self, bbox=(0, 0, 0, 0), grid=[], children=[])
 
 @dataclass
 class PoolItemSpec(FeatureSlotSpec[ObjectSpec]):

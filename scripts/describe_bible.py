@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Write puzzle descriptions from a puzzle source file to a JSON file."""
 
+import sys
+
+sys.dont_write_bytecode = True
+
 import argparse
 import json
 import random
@@ -29,9 +33,11 @@ def describe_source(
     records: dict[str, DescriptionRecord] = {}
     for puzzle_id, puzzle in repo.puzzles.items():
         ctx = puzzle.instantiate(rng)
+        if ctx.description is None:
+            raise ValueError(f"puzzle {puzzle_id!r}: instantiate did not produce a description")
         records[puzzle_id] = DescriptionRecord(
-            input=ctx.input,
-            steps=list(ctx.steps),
+            input=ctx.description.input,
+            steps=list(ctx.description.steps),
             palette=list(ctx.palette),
         )
     output_path.write_text(json.dumps(
