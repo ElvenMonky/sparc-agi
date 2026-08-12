@@ -5,32 +5,9 @@ from typing import Any, get_args, get_origin
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec
-from sparc_agi.puzzle_spec.features.object import ObjectSpec, PoolItemSpec
+from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 from sparc_agi.puzzle_spec.wire import FILTER_BINDING_KEY, WireRef, WireValue
-
-def _collect_wire_values(
-    step,
-    puzzle,
-    step_index: int,
-    outputs: list[FeatureSpec],
-) -> dict[str, Any]:
-    wire_values: dict[str, Any] = {}
-    for dc_field in fields(type(step)):
-        if WireRef.spec_type(dc_field.type) is None:
-            continue
-        value = getattr(step, dc_field.name)
-        if get_origin(dc_field.type) is list:
-            wire_values[dc_field.name] = [
-                _resolve_ref_value(puzzle, step_index, ref, outputs) for ref in value
-            ]
-        elif value is None:
-            wire_values[dc_field.name] = None
-        else:
-            wire_values[dc_field.name] = _resolve_ref_value(
-                puzzle, step_index, value, outputs
-            )
-    return wire_values
 
 def _unwrap_optional(hint: type) -> type:
     args = get_args(hint)
@@ -46,9 +23,9 @@ def _nested_spec_type(spec_cls: type[FeatureSpec], trait_name: str) -> type[Feat
         origin = get_origin(hint)
         if origin is FeatureSlotSpec:
             inner = get_args(hint)[0]
-            if isinstance(inner, type) and issubclass(inner, FeatureSpec):
+            if FeatureSpec.is_feature(inner):
                 return inner
-        if isinstance(hint, type) and issubclass(hint, FeatureSpec):
+        if FeatureSpec.is_feature(hint):
             return hint
     return None
 
@@ -80,53 +57,6 @@ def iter_input_objects(root: ObjectSpec) -> Iterator[ObjectSpec]:
         for item in pool:
             yield from iter_input_objects(item.value)
 
-def _resolve_ref_value(
-    puzzle,
-    step_index: int,
-    ref: WireValue,
-    outputs: list[FeatureSpec],
-) -> FeatureSpec:
-    if isinstance(ref, str):
-        item = puzzle.cache.get(ref)
-        if item is None:
-            raise ValueError(f"unknown cache key {ref!r}")
-        return item.value
-    if isinstance(ref, int):
-        if ref < 0 or ref > step_index:
-            raise ValueError(f"invalid wire ref {ref}")
-        return outputs[ref]
-    raise ValueError(f"invalid wire value {ref!r}")
-
-def trace_step_outputs(puzzle) -> list[FeatureSpec]:
-    outputs: list[FeatureSpec] = [puzzle.input.value]
-    for step_index, step in enumerate(puzzle.steps):
-        step_cls = type(step)
-        wire_values = _collect_wire_values(step, puzzle, step_index, outputs)
-        output = step_cls.trace(**wire_values)
-        if output is None:
-            raise ValueError(f"step {step_index} {step_cls.tag()}: trace returned None")
-        declared = step_cls.output_type()
-        if not isinstance(output, declared):
-            raise ValueError(
-                f"step {step_index} {step_cls.tag()}: trace returned "
-                f"{type(output).tag()}, expected {declared.tag()}"
-            )
-        outputs.append(output)
-    return outputs
-
-def _resolve_filter(puzzle, ref: WireValue) -> FilterSpec:
-    if not isinstance(ref, str):
-        raise ValueError(f"filter wire must be a cache key, got {ref!r}")
-    item = puzzle.cache.get(ref)
-    if item is None:
-        raise ValueError(f"unknown filter cache key {ref!r}")
-    filter_spec = item.value
-    if not isinstance(filter_spec, FilterSpec):
-        raise ValueError(
-            f"cache key {ref!r} must be a filter, got {type(filter_spec).tag()!r}"
-        )
-    return filter_spec
-
 def validate_linked_mappings(puzzle) -> None:
     for obj in iter_input_objects(puzzle.input.value):
         if not obj.linked_mappings:
@@ -151,37 +81,7 @@ def validate_linked_mappings(puzzle) -> None:
                     f"requires gettable trait {source_trait!r}"
                 )
 
-def _validate_wire_ref(
-    puzzle,
-    step_index: int,
-    ref: object,
-    expected: type[FeatureSpec],
-    label: str,
-    outputs: list[FeatureSpec],
-) -> None:
-    if ref is None:
-        return
-    if isinstance(ref, str):
-        item = puzzle.cache.get(ref)
-        if item is None:
-            raise ValueError(f"{label}: unknown cache key {ref!r}")
-        actual = type(item.value)
-        if not issubclass(actual, expected):
-            raise ValueError(
-                f"{label}: cache key {ref!r} is {actual.tag()}, expected {expected.tag()}"
-            )
-        return
-    if isinstance(ref, int):
-        actual = type(_resolve_ref_value(puzzle, step_index, ref, outputs))
-        if not issubclass(actual, expected):
-            raise ValueError(
-                f"{label}: step ref {ref} is {actual.tag()}, expected {expected.tag()}"
-            )
-        return
-    raise ValueError(f"{label}: invalid wire value {ref!r}")
-
 def validate_step_wires(puzzle) -> None:
-    outputs = puzzle.step_outputs
     for step_index, step in enumerate(puzzle.steps):
         step_cls = type(step)
         for dc_field in fields(step_cls):
@@ -190,12 +90,21 @@ def validate_step_wires(puzzle) -> None:
                 continue
             is_list = get_origin(dc_field.type) is list
             value = getattr(step, dc_field.name)
-            refs = value if is_list else [value]
-            for ref_index, ref in enumerate(refs):
+            wires = value if is_list else [value]
+            for ref_index, wire in enumerate(wires):
                 label = f"step {step_index} {step_cls.tag()}.{dc_field.name}"
                 if is_list:
                     label += f"[{ref_index}]"
-                _validate_wire_ref(puzzle, step_index, ref, spec_type, label, outputs)
+                if wire is None:
+                    continue
+                try:
+                    actual = type(puzzle.resolve_wire_value(step_index, wire))
+                except ValueError as exc:
+                    raise ValueError(f"{label}: {exc}") from exc
+                if not issubclass(actual, spec_type):
+                    raise ValueError(
+                        f"{label}: resolved to {actual.tag()}, expected {spec_type.tag()}"
+                    )
 
 def validate_filter_wires(puzzle) -> None:
     for step_index, step in enumerate(puzzle.steps):
@@ -212,7 +121,17 @@ def validate_filter_wires(puzzle) -> None:
             if filter_wire is None:
                 continue
             label = f"step {step_index} {step_cls.tag()}.{dc_field.name}"
-            filter_spec = _resolve_filter(puzzle, filter_wire)
+            if not isinstance(filter_wire, str):
+                raise ValueError(f"{label}: filter wire must be a cache key, got {filter_wire!r}")
+            item = puzzle.cache.get(filter_wire)
+            if item is None:
+                raise ValueError(f"{label}: unknown filter cache key {filter_wire!r}")
+            filter_spec = item.value
+            if not isinstance(filter_spec, FilterSpec):
+                raise ValueError(
+                    f"{label}: cache key {filter_wire!r} must be a filter, "
+                    f"got {type(filter_spec).tag()!r}"
+                )
             if not isinstance(object_ref, int):
                 continue
             root = puzzle.step_outputs[object_ref]
@@ -221,11 +140,10 @@ def validate_filter_wires(puzzle) -> None:
             binding = dc_field.metadata[FILTER_BINDING_KEY]
             if binding is None:
                 continue
-            slot = filter_spec.apply(PoolItemSpec(value=root))
-            if slot.value is None:
+            target = filter_spec.target(root)
+            if target is None:
                 at = f"index {filter_spec.index[-1]}" if filter_spec.index else "root"
                 raise ValueError(f"{label}: filter {at} resolves to missing pool item")
-            target = slot.value
             access, trait = binding
             spec_cls = type(target)
             if not has_trait_access(spec_cls, trait, access):

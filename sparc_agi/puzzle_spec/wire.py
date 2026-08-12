@@ -31,6 +31,6 @@ class WireRef[F: FeatureSpec]:
         if origin is not WireRef:
             return None
         args = get_args(typ)
-        if len(args) == 1 and isinstance(args[0], type) and issubclass(args[0], FeatureSpec):
+        if len(args) == 1 and FeatureSpec.is_feature(args[0]):
             return args[0]
         return FeatureSpec

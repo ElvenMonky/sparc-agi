@@ -9,6 +9,11 @@ from sparc_agi.puzzle_spec.range import Range
 
 ACCESS_KEY = "access"
 
+def with_article(phrase: str) -> str:
+    if phrase[:1].lower() in "aeiou":
+        return f"an {phrase}"
+    return f"a {phrase}"
+
 class Access(IntFlag):
     GET = 1
     SET = 2
@@ -44,9 +49,18 @@ def _omit_if_default(converter: cattrs.Converter, dc_field: Field[Any], val: Any
         return False
     return val == default
 
-@dataclass
+def _follow_trait(value: Any) -> Any:
+    if isinstance(value, FeatureSpec):
+        return value
+    inner = getattr(value, "value", None)
+    if isinstance(inner, FeatureSpec):
+        return inner
+    return value
+
+@dataclass(kw_only=True)
 class FeatureSpec:
     REGISTRY: ClassVar[dict[str, type[Self]]] = {}
+    alias: str | None = field(default=None, compare=False, repr=False)
 
     @classmethod
     def tag(cls) -> str:
@@ -54,6 +68,10 @@ class FeatureSpec:
             if registered is cls:
                 return name
         raise ValueError(f"{cls.__name__} is not registered")
+
+    @staticmethod
+    def is_feature(typ: Any) -> bool:
+        return isinstance(typ, type) and issubclass(typ, FeatureSpec)
 
     @classmethod
     def trait_accesses(cls) -> dict[str, Access]:
@@ -103,6 +121,32 @@ class FeatureSpec:
             return False
         raise AttributeError(f"{type(self).__name__} has no field {field_name!r}")
 
+    def get_trait(self, path: str) -> FeatureSpec | None:
+        current: Any = self
+        for part in path.split("."):
+            if current is None:
+                return None
+            value = getattr(current, part, None)
+            if value is None:
+                return None
+            current = _follow_trait(value)
+        return current if isinstance(current, FeatureSpec) else None
+
+    def set_trait(self, path: str, feature: FeatureSpec) -> None:
+        current: Any = self
+        *prefix, leaf = path.split(".")
+        for part in prefix:
+            value = getattr(current, part)
+            current = _follow_trait(value)
+        slot = getattr(current, leaf)
+        if isinstance(slot, FeatureSpec):
+            setattr(current, leaf, feature)
+        else:
+            slot.value = feature
+
+    def refer(self, ctx: Puzzle) -> str:
+        return self.alias or self.describe(ctx)
+
     def describe(self, ctx: Puzzle) -> str:
         return type(self).tag()
 
@@ -125,7 +169,7 @@ F = TypeVar("F", bound=FeatureSpec)
 
 def register_feature(name: str) -> Callable[[type[F]], type[F]]:
     def decorator(cls: type[F]) -> type[F]:
-        if not issubclass(cls, FeatureSpec):
+        if not FeatureSpec.is_feature(cls):
             raise TypeError(f"{cls.__name__} must subclass FeatureSpec")
         if name in FeatureSpec.REGISTRY:
             raise ValueError(f"feature {name!r} already registered as {FeatureSpec.REGISTRY[name].__name__}")

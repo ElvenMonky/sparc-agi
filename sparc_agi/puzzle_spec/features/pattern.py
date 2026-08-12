@@ -3,6 +3,7 @@ from typing import Any, Self, get_origin
 
 import cattrs
 
+from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait
 from sparc_agi.consts import MAX_POOL
 from sparc_agi.puzzle_spec.features.scalar import OrientationSpec
@@ -35,6 +36,16 @@ class PatternSpec(FeatureSpec):
                 continue
             kwargs[dc_field.name] = converter.structure(value[dc_field.name], dc_field.type)
         return concrete(**kwargs)
+
+    def describe(self, ctx: Puzzle) -> str:
+        parts: list[str] = []
+        if self.prefix:
+            parts.append(f"{self.prefix} prefix")
+        if self.pattern:
+            parts.append(f"{self.pattern} pattern")
+        if not parts:
+            return ""
+        return " and ".join(parts)
 
 @dataclass
 class PatternSlotSpec(FeatureSlotSpec[PatternSpec]):

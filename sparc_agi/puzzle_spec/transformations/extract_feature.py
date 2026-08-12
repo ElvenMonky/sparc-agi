@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import ClassVar
 
+from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.arrangement import ArrangementSpec
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
@@ -18,6 +19,12 @@ class ExtractFeatureSpec[Output: FeatureSpec](TransformationSpec[Output]):
         if slot is None:
             raise ValueError(f"{type(object).tag()} has no {cls.trait!r} to extract")
         return slot.value
+
+    def alias_stem(self, *, object: ObjectSpec) -> str:
+        return "extracted "
+
+    def describe(self, ctx: Puzzle, *, object: ObjectSpec) -> str:
+        return f"Extract {type(self).trait} from {object.refer(ctx)}."
 
 @register_transformation("ExtractArrangement")
 @dataclass

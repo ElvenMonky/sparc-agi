@@ -1,39 +1,15 @@
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Any
 
+from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec, MaskToColorMappingSpec, WidthToColorMappingSpec
-from sparc_agi.puzzle_spec.features.object import ObjectSpec, PoolItemSpec
+from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec
-from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
 from sparc_agi.puzzle_spec.validate import has_trait_access
 from sparc_agi.puzzle_spec.wire import WireRef, filter_ref
-
-def _read_trait(obj: ObjectSpec, path: str) -> FeatureSpec | None:
-    current: Any = obj
-    for part in path.split("."):
-        if current is None:
-            return None
-        value = getattr(current, part, None)
-        if value is None:
-            return None
-        current = value.value if isinstance(value, FeatureSlotSpec) else value
-    return current
-
-def _write_trait(obj: ObjectSpec, path: str, feature: FeatureSpec) -> None:
-    current: Any = obj
-    *prefix, leaf = path.split(".")
-    for part in prefix:
-        value = getattr(current, part)
-        current = value.value if isinstance(value, FeatureSlotSpec) else value
-    slot = getattr(current, leaf)
-    if isinstance(slot, FeatureSlotSpec):
-        slot.value = feature
-    else:
-        setattr(current, leaf, feature)
 
 @dataclass
 class ApplyMappingSpec[Mapping: MappingSpec](TransformationSpec[ObjectSpec]):
@@ -51,9 +27,8 @@ class ApplyMappingSpec[Mapping: MappingSpec](TransformationSpec[ObjectSpec]):
         target_filter: FilterSpec,
     ) -> ObjectSpec:
         root = deepcopy(object)
-        slot = PoolItemSpec(value=root)
-        source = source_filter.apply(slot).value
-        target = target_filter.apply(slot).value
+        source = source_filter.target(root)
+        target = target_filter.target(root)
         if source is None or target is None:
             raise ValueError(f"{cls.tag()}: filter resolves to removed pool item")
         mapping_cls = type(mapping)
@@ -69,9 +44,28 @@ class ApplyMappingSpec[Mapping: MappingSpec](TransformationSpec[ObjectSpec]):
             raise ValueError(
                 f"{cls.tag()}: {type(target).tag()} lacks settable trait {target_trait!r}"
             )
-        _read_trait(source, source_trait)
-        _write_trait(target, target_trait, ColorSpec(value=mapping.value))
+        source.get_trait(source_trait)
+        target.set_trait(target_trait, ColorSpec(value=mapping.value))
+        target.alias = f"mapped {target.kind_noun()}"
         return root
+
+    def describe(
+        self,
+        ctx: Puzzle,
+        *,
+        mapping: Mapping,
+        object: ObjectSpec,
+        source_filter: FilterSpec,
+        target_filter: FilterSpec,
+    ) -> str:
+        mapping_cls = type(mapping)
+        source_trait = mapping_cls.source_trait
+        target_trait = mapping_cls.target_trait
+        source = source_filter.refer_target(ctx, object)
+        if source_filter.target(object) is target_filter.target(object):
+            return f"Apply {target_trait} mapped from {source_trait} of {source}."
+        target = target_filter.refer_target(ctx, object)
+        return f"Apply {target_trait} mapped to {target} from {source_trait} of {source}."
 
 @register_transformation("ApplyMaskToColorMapping")
 @dataclass

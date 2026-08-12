@@ -3,7 +3,7 @@ from typing import Literal
 
 from sparc_agi.consts import MAX_ORIENTATION, MAX_SIZE
 from sparc_agi.puzzle.puzzle import Puzzle
-from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait
+from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait, with_article
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, CountSpec, HeightSpec, OrientationSpec, WidthSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.sequence import Sequence
@@ -45,6 +45,11 @@ class OriginSpec(PositionSpec):
 class ArrangementSpec(FeatureSpec):
     count: CountSpec | None = trait(default=None)
     size: SizeSpec | None = trait(default=None)
+
+    def describe(self, ctx: Puzzle) -> str:
+        if self.size is not None and (phrase := self.size.describe(ctx)):
+            return with_article(f"{phrase} grid")
+        return "an arrangement"
 
 @dataclass
 class ArrangementSlotSpec(FeatureSlotSpec[ArrangementSpec]):

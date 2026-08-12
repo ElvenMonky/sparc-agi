@@ -67,7 +67,7 @@
       "a": {
         "filter": {
           "index": [1],
-          "criteria": ["color", "kind"]
+          "criteria": ["color"]
         }
       },
       "b": {

@@ -1,11 +1,9 @@
 from dataclasses import MISSING, dataclass, fields
 from typing import Any, Callable, ClassVar, Self, TypeVar, get_args, get_origin
 
+from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.wire import WireValue
-
-def _is_concrete_output(typ) -> bool:
-    return isinstance(typ, type) and issubclass(typ, FeatureSpec)
 
 @dataclass
 class TransformationSpec[Output: FeatureSpec]:
@@ -25,7 +23,7 @@ class TransformationSpec[Output: FeatureSpec]:
                 origin = get_origin(base) or base
                 if origin is TransformationSpec:
                     args = get_args(base)
-                    if len(args) == 1 and _is_concrete_output(args[0]):
+                    if len(args) == 1 and FeatureSpec.is_feature(args[0]):
                         return args[0]
                 type_args = get_args(base)
                 if not isinstance(origin, type) or not type_args:
@@ -38,10 +36,10 @@ class TransformationSpec[Output: FeatureSpec]:
                     if len(parent_args) != 1:
                         continue
                     output = parent_args[0]
-                    if _is_concrete_output(output):
+                    if FeatureSpec.is_feature(output):
                         return output
                     specialized = type_args[0]
-                    if _is_concrete_output(specialized):
+                    if FeatureSpec.is_feature(specialized):
                         return specialized
         raise ValueError(f"{cls.__name__} must specialize TransformationSpec[FeatureSpec]")
 
@@ -102,6 +100,12 @@ class TransformationSpec[Output: FeatureSpec]:
     @classmethod
     def unstructure_step(cls, inst: Self) -> dict[str, list[WireValue]]:
         return {type(inst).tag(): inst.unstructure()}
+
+    def alias_stem(self, **input: Any) -> str:
+        return ""
+
+    def describe(self, ctx: Puzzle, **input: Any) -> str:
+        return ""
 
 T = TypeVar("T", bound=TransformationSpec)
 

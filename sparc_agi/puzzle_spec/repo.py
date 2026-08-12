@@ -75,7 +75,7 @@ def _all_feature_types() -> set[type[FeatureSpec]]:
     while queue:
         cls = queue.pop()
         for sub in cls.__subclasses__():
-            if issubclass(sub, FeatureSpec) and sub not in types:
+            if FeatureSpec.is_feature(sub) and sub not in types:
                 types.add(sub)
                 queue.append(sub)
     return types
@@ -105,7 +105,7 @@ def _register_hooks(converter: cattrs.Converter) -> None:
         converter.register_unstructure_hook(cls, _input_spec_unstructure_hook(cls, converter))
 
     converter.register_structure_hook_func(
-        lambda t: isinstance(t, type) and issubclass(t, FeatureSpec),
+        FeatureSpec.is_feature,
         lambda value, cls: _structure_feature(value, cls, converter),
     )
 
