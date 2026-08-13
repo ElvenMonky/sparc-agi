@@ -1,7 +1,7 @@
 import random
 from dataclasses import dataclass
 
-from sparc_agi.consts import MAX_COLOR, MAX_COUNT, MAX_ORIENTATION, MAX_SIZE, TRANSPARENT_COLOR
+from sparc_agi.consts import MAX_COLOR, MAX_COUNT, MAX_DIRECTION, MAX_ORIENTATION, MAX_SIZE, TRANSPARENT_COLOR
 from sparc_agi.puzzle.features.base import Scalar
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait
@@ -28,8 +28,7 @@ class ScalarSpec(FeatureSpec):
         return self.value.unstructure()
 
     def instantiate(self, rng: random.Random) -> Scalar:
-        del rng
-        return Scalar(spec=self, value=0)
+        return Scalar(spec=self, value=self.value.instantiate(rng))
 
     def describe(self, ctx: Puzzle) -> str:
         return f"{type(self).tag()} {self.value.describe()}"
@@ -63,6 +62,11 @@ class WidthSpec(ScalarSpec):
 @dataclass
 class HeightSpec(ScalarSpec):
     value: Range[1, MAX_SIZE] = trait(default_factory=lambda: Range(1, MAX_SIZE))
+
+@register_feature("direction")
+@dataclass
+class DirectionSpec(ScalarSpec):
+    value: Range[0, MAX_DIRECTION] = trait(default_factory=Range)
 
 @register_feature("orientation")
 @dataclass

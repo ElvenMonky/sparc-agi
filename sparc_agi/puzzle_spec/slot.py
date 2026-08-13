@@ -1,8 +1,10 @@
+import random
 from dataclasses import dataclass, fields
-from typing import Any, Generic, Self, get_args, get_origin
+from typing import Any, Generic, Literal, Self, get_args, get_origin
 
 import cattrs
 
+from sparc_agi.puzzle.slot import PuzzleCacheSlot, SampleCacheSlot
 from sparc_agi.puzzle_spec.features.base import F, FeatureSpec, _omit_if_default
 
 @dataclass
@@ -25,11 +27,12 @@ class FeatureSlotSpec(Generic[F]):
         if not isinstance(value, dict):
             raise ValueError(f"{cls.__name__} must be an object, got {value!r}")
         kwargs: dict[str, Any] = {}
-        for field in fields(cls):
-            if field.name == "value":
+        for dc_field in fields(cls):
+            if dc_field.name == "value":
                 continue
-            raw = value.get(field.name)
-            kwargs[field.name] = None if raw is None else converter.structure(raw, field.type)
+            raw = value.get(dc_field.name)
+            if raw is not None:
+                kwargs[dc_field.name] = converter.structure(raw, dc_field.type)
         body = [key for key in value if key not in kwargs]
         if len(body) != 1:
             raise ValueError(f"slot must be a single-key tagged object, got {body!r}")
@@ -42,17 +45,22 @@ class FeatureSlotSpec(Generic[F]):
     @classmethod
     def unstructure(cls, inst: Self, converter: cattrs.Converter) -> dict[str, Any]:
         payload = {type(inst.value).tag(): converter.unstructure(inst.value)}
-        for field in fields(cls):
-            if field.name == "value":
+        for dc_field in fields(cls):
+            if dc_field.name == "value":
                 continue
-            val = getattr(inst, field.name)
+            val = getattr(inst, dc_field.name)
             if val is None:
                 continue
-            if _omit_if_default(converter, field, val):
+            if _omit_if_default(converter, dc_field, val):
                 continue
-            payload[field.name] = converter.unstructure(val)
+            payload[dc_field.name] = converter.unstructure(val)
         return payload
 
 @dataclass
 class CacheItemSpec(FeatureSlotSpec[FeatureSpec]):
-    scope: str | None = None
+    scope: Literal["puzzle", "sample"] = "puzzle"
+
+    def instantiate(self, rng: random.Random) -> PuzzleCacheSlot | SampleCacheSlot:
+        if self.scope == "sample":
+            return SampleCacheSlot(spec=self)
+        return PuzzleCacheSlot(spec=self, value=self.value.instantiate(rng))

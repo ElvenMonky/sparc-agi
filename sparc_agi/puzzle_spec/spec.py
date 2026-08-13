@@ -85,9 +85,11 @@ class PuzzleSpec:
         validate_filter_wires(self)
         validate_step_outputs(self)
 
-    def instantiate(self, rng: random.Random | None = None):
-        palette = self.palette.instantiate(rng or random.Random())
-        ctx = Puzzle(spec=self, palette=palette)
+    def instantiate(self, rng: random.Random | None = None) -> Puzzle:
+        rng = rng or random.Random()
+        palette = self.palette.instantiate(rng)
+        cache = {key: item.instantiate(rng) for key, item in self.cache.items()}
+        ctx = Puzzle(spec=self, palette=palette, cache=cache)
         body = self.input.value.describe(ctx)
         if not body.startswith(("a ", "an ")):
             body = with_article(body)

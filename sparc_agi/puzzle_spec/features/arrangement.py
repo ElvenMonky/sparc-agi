@@ -11,6 +11,20 @@ from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.sequence import Sequence
 from sparc_agi.puzzle_spec.slot import FeatureSlotSpec
 
+_DIRECTION_DX = (1, 1, 0, -1, -1, -1, 0, 1)
+_DIRECTION_DY = (0, 1, 1, 1, 0, -1, -1, -1)
+
+def _scan_directions(orientation: int) -> tuple[int, int]:
+    secondary = orientation % 8
+    if orientation < 8:
+        primary = (orientation + 2) % 8
+    else:
+        primary = (orientation - 2) % 8
+    return primary, secondary
+
+def _direction_value(x: int, y: int, direction: int) -> int:
+    return x * _DIRECTION_DX[direction] + y * _DIRECTION_DY[direction]
+
 @register_feature("size")
 @dataclass
 class SizeSpec(FeatureSpec):
@@ -20,6 +34,12 @@ class SizeSpec(FeatureSpec):
 
     def is_fixed(self) -> bool:
         return self.width.value.is_fixed() and self.height.value.is_fixed()
+
+    def instantiate(self, rng: random.Random) -> tuple[int, int]:
+        return (
+            self.width.instantiate(rng).value,
+            self.height.instantiate(rng).value,
+        )
 
     def describe(self, ctx: Puzzle) -> str | None:
         if not self.is_fixed():
@@ -49,8 +69,18 @@ class ArrangementSpec(FeatureSpec):
     size: SizeSpec | None = trait(default=None)
 
     def instantiate(self, rng: random.Random) -> Arrangement:
-        del rng
-        return Arrangement(spec=self, value=0)
+        if self.size is None:
+            return Arrangement(spec=self, size=(0, 0), value=0)
+        width, height = self.size.instantiate(rng)
+        cells = width * height
+        if self.count is None:
+            mask = (1 << cells) - 1
+        else:
+            count = min(max(0, self.count.instantiate(rng).value), cells)
+            mask = 0
+            for index in rng.sample(range(cells), count):
+                mask |= 1 << index
+        return Arrangement(spec=self, size=(width, height), value=mask)
 
     def describe(self, ctx: Puzzle) -> str:
         if self.size is not None and (phrase := self.size.describe(ctx)):
@@ -64,7 +94,30 @@ class ArrangementSlotSpec(FeatureSlotSpec[ArrangementSpec]):
 @register_feature("arrangement.grid")
 @dataclass
 class GridArrangementSpec(ArrangementSpec):
-    direction: OrientationSpec = trait(default_factory=lambda: OrientationSpec(Range(0)))
+    size: SizeSpec = trait(default_factory=SizeSpec)
+    orientation: OrientationSpec = trait(default_factory=lambda: OrientationSpec(Range(0)))
+
+    def instantiate(self, rng: random.Random) -> Arrangement:
+        if self.count is None:
+            return super().instantiate(rng)
+        width, height = self.size.instantiate(rng)
+        cells = width * height
+        count = min(max(0, self.count.instantiate(rng).value), cells)
+        orientation = self.orientation.instantiate(rng).value
+        primary_dir, secondary_dir = _scan_directions(orientation)
+        order: list[tuple[int, int, int]] = []
+        for y in range(height):
+            for x in range(width):
+                order.append((
+                    _direction_value(x, y, primary_dir),
+                    _direction_value(x, y, secondary_dir),
+                    y * width + x,
+                ))
+        order.sort()
+        mask = 0
+        for _, _, index in order[:count]:
+            mask |= 1 << index
+        return Arrangement(spec=self, size=(width, height), value=mask)
 
 @dataclass
 class RaySpec:

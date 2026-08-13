@@ -18,11 +18,16 @@ class Filter(Feature):
 
 @dataclass
 class Arrangement(Feature):
+    size: tuple[int, int]
     value: int  # bitmask
 
 @dataclass
 class Pattern(Feature):
     pass
+
+@dataclass
+class LinearPattern(Pattern):
+    direction: int
 
 @dataclass
 class Mapping(Feature):
