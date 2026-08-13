@@ -32,11 +32,8 @@ def validate_linked_mappings(puzzle) -> None:
                     f"must be a mapping, got {type(mapping).tag()!r}"
                 )
             source_trait = type(mapping).source_trait
-            if source_trait is not None and not spec_cls.has_trait_access(source_trait, Access.GET):
-                raise ValueError(
-                    f"{spec_cls.tag()} linked_mappings cache key {cache_key!r} "
-                    f"requires gettable trait {source_trait!r}"
-                )
+            if source_trait is not None:
+                spec_cls.validate_trait_access(source_trait, Access.GET)
 
 def validate_step_wires(puzzle) -> None:
     for step_index, step in enumerate(puzzle.steps):

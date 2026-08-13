@@ -5,7 +5,7 @@ from typing import ClassVar
 from sparc_agi.puzzle.features.base import Filter, Scalar
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
-from sparc_agi.puzzle_spec.features.filter import FilterSpec, filtered_target
+from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, OrientationSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
@@ -45,7 +45,8 @@ class ApplyFeatureSpec[Feature: FeatureSpec](TransformationSpec[ObjectSpec]):
         filter: FilterSpec,
     ) -> ObjectSpec:
         root = deepcopy(object)
-        target = filtered_target(root, filter, Access.SET, cls.trait)
+        target = filter.target(root)
+        type(target).validate_trait_access(cls.trait, Access.SET)
         setattr(target, cls.trait, feature)
         return root
 

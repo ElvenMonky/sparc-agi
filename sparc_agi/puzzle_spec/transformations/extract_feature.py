@@ -5,7 +5,7 @@ from sparc_agi.puzzle.features.base import Filter
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.arrangement import ArrangementSpec
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
-from sparc_agi.puzzle_spec.features.filter import FilterSpec, filtered_target
+from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef
@@ -18,7 +18,8 @@ class ExtractFeatureSpec[Output: FeatureSpec](TransformationSpec[Output]):
 
     @classmethod
     def trace(cls, object: ObjectSpec, filter: FilterSpec) -> Output:
-        target = filtered_target(object, filter, Access.GET, cls.trait)
+        target = filter.target(object)
+        type(target).validate_trait_access(cls.trait, Access.GET)
         feature = target.get_trait(cls.trait)
         if feature is None:
             raise ValueError(f"{type(target).tag()} has no {cls.trait!r} to extract")

@@ -5,7 +5,7 @@ from typing import ClassVar
 from sparc_agi.puzzle.features.base import Filter, Mapping
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
-from sparc_agi.puzzle_spec.features.filter import FilterSpec, filtered_target
+from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec, MaskToColorMappingSpec, WidthToColorMappingSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
@@ -40,8 +40,10 @@ class ApplyMappingSpec[M: MappingSpec](TransformationSpec[ObjectSpec]):
         target_trait = cls._target_trait(mapping)
         if source_trait is None:
             raise ValueError(f"{cls.tag()}: mapping lacks source trait")
-        source = filtered_target(root, source_filter, Access.GET, source_trait)
-        target = filtered_target(root, target_filter, Access.SET, target_trait)
+        source = source_filter.target(root)
+        type(source).validate_trait_access(source_trait, Access.GET)
+        target = target_filter.target(root)
+        type(target).validate_trait_access(target_trait, Access.SET)
         trait = source.get_trait(source_trait)
         if trait is None:
             raise ValueError(

@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 
 from sparc_agi.puzzle.features.base import Filter
 from sparc_agi.puzzle.puzzle import Puzzle
-from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec, register_feature
+from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature
 from sparc_agi.puzzle_spec.features.object import ObjectSpec, PoolItemSpec
 from sparc_agi.puzzle_spec.range import Range
 
@@ -54,19 +54,3 @@ class FilterSpec(FeatureSpec):
         count = variants.lo if variants.is_fixed() else variants.hi
         parts.append(slot.value.kind_noun(count))
         return f"{' '.join(parts)} from {root.refer(ctx)}"
-
-def filtered_target(
-    root: ObjectSpec,
-    filter: FilterSpec,
-    access: Access,
-    trait: str,
-) -> ObjectSpec:
-    target = filter.target(root)
-    if not type(target).has_trait_access(trait, access):
-        need = "gettable" if access & Access.GET else "settable"
-        if access == Access.RW:
-            need = "gettable/settable"
-        raise ValueError(
-            f"filtered {type(target).tag()} lacks {need} trait {trait!r}"
-        )
-    return target

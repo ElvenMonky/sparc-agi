@@ -95,15 +95,17 @@ class FeatureSpec:
         )
 
     @classmethod
-    def has_trait_access(cls, path: str, access: Access) -> bool:
+    def validate_trait_access(cls, path: str, access: Access) -> None:
         parts = path.split(".")
         spec_cls: type[FeatureSpec] = cls
         for index, part in enumerate(parts):
             accesses = spec_cls.trait_accesses()
             if part not in accesses:
-                return False
+                break
             if index == len(parts) - 1:
-                return bool(accesses[part] & access)
+                if accesses[part] & access:
+                    return
+                break
             nested: type[FeatureSpec] | None = None
             for dc_field in fields(spec_cls):
                 if dc_field.name != part:
@@ -124,9 +126,12 @@ class FeatureSpec:
                             nested = inner
                 break
             if nested is None:
-                return False
+                break
             spec_cls = nested
-        return False
+        need = "gettable" if access & Access.GET else "settable"
+        if access == Access.RW:
+            need = "gettable/settable"
+        raise ValueError(f"{cls.tag()} lacks {need} trait {path!r}")
 
     @staticmethod
     def is_plural(count: Range | int | None) -> bool:
