@@ -3,10 +3,9 @@ from dataclasses import fields
 from typing import get_args, get_origin
 
 from sparc_agi.puzzle_spec.features.base import Access
-from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
-from sparc_agi.puzzle_spec.wire import FILTER_BINDING_KEY, WireRef
+from sparc_agi.puzzle_spec.wire import WireRef
 
 def iter_input_objects(root: ObjectSpec) -> Iterator[ObjectSpec]:
     yield root
@@ -87,51 +86,3 @@ def validate_step_outputs(puzzle) -> None:
         raise ValueError(
             f"final output must be an object, got {type(final).tag()}"
         )
-
-def validate_filter_wires(puzzle) -> None:
-    for step_index, step in enumerate(puzzle.steps):
-        step_cls = type(step)
-        object_ref = getattr(step, "object", None)
-        if object_ref is None:
-            continue
-        for dc_field in fields(step_cls):
-            if WireRef.spec_type(dc_field.type) is not FilterSpec:
-                continue
-            if FILTER_BINDING_KEY not in dc_field.metadata:
-                continue
-            filter_wire = getattr(step, dc_field.name)
-            if filter_wire is None:
-                continue
-            label = f"step {step_index} {step_cls.tag()}.{dc_field.name}"
-            if not isinstance(filter_wire, str):
-                raise ValueError(f"{label}: filter wire must be a cache key, got {filter_wire!r}")
-            item = puzzle.cache.get(filter_wire)
-            if item is None:
-                raise ValueError(f"{label}: unknown filter cache key {filter_wire!r}")
-            filter_spec = item.value
-            if not isinstance(filter_spec, FilterSpec):
-                raise ValueError(
-                    f"{label}: cache key {filter_wire!r} must be a filter, "
-                    f"got {type(filter_spec).tag()!r}"
-                )
-            if not isinstance(object_ref, int):
-                continue
-            root = puzzle.step_outputs[object_ref]
-            if not isinstance(root, ObjectSpec):
-                continue
-            binding = dc_field.metadata[FILTER_BINDING_KEY]
-            if binding is None:
-                continue
-            target = filter_spec.target(root)
-            if target is None:
-                at = f"index {filter_spec.index[-1]}" if filter_spec.index else "root"
-                raise ValueError(f"{label}: filter {at} resolves to missing pool item")
-            access, trait = binding
-            spec_cls = type(target)
-            if not spec_cls.has_trait_access(trait, access):
-                need = "gettable" if access & Access.GET else "settable"
-                if access == Access.RW:
-                    need = "gettable/settable"
-                raise ValueError(
-                    f"{label}: filtered {spec_cls.tag()} lacks {need} trait {trait!r}"
-                )

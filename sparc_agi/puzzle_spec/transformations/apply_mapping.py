@@ -5,11 +5,11 @@ from typing import ClassVar
 from sparc_agi.puzzle.features.base import Filter, Mapping
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
-from sparc_agi.puzzle_spec.features.filter import FilterSpec
+from sparc_agi.puzzle_spec.features.filter import FilterSpec, filtered_target
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec, MaskToColorMappingSpec, WidthToColorMappingSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
-from sparc_agi.puzzle_spec.wire import WireRef, filter_ref
+from sparc_agi.puzzle_spec.wire import WireRef
 
 @dataclass
 class ApplyMappingSpec[M: MappingSpec](TransformationSpec[ObjectSpec]):
@@ -35,23 +35,13 @@ class ApplyMappingSpec[M: MappingSpec](TransformationSpec[ObjectSpec]):
         target_filter: FilterSpec,
     ) -> ObjectSpec:
         root = deepcopy(object)
-        source = source_filter.target(root)
-        target = target_filter.target(root)
-        if source is None or target is None:
-            raise ValueError(f"{cls.tag()}: filter resolves to removed pool item")
         mapping_cls = type(mapping)
         source_trait = mapping_cls.source_trait
         target_trait = cls._target_trait(mapping)
         if source_trait is None:
             raise ValueError(f"{cls.tag()}: mapping lacks source trait")
-        if not type(source).has_trait_access(source_trait, Access.GET):
-            raise ValueError(
-                f"{cls.tag()}: {type(source).tag()} lacks gettable trait {source_trait!r}"
-            )
-        if not type(target).has_trait_access(target_trait, Access.SET):
-            raise ValueError(
-                f"{cls.tag()}: {type(target).tag()} lacks settable trait {target_trait!r}"
-            )
+        source = filtered_target(root, source_filter, Access.GET, source_trait)
+        target = filtered_target(root, target_filter, Access.SET, target_trait)
         trait = source.get_trait(source_trait)
         if trait is None:
             raise ValueError(
@@ -87,18 +77,14 @@ class ApplyMappingSpec[M: MappingSpec](TransformationSpec[ObjectSpec]):
 @register_transformation("ApplyMaskToColorMapping")
 @dataclass
 class ApplyMaskToColorMappingSpec(ApplyMappingSpec[MaskToColorMappingSpec]):
-    source_filter: WireRef[FilterSpec] = filter_ref((Access.GET, MaskToColorMappingSpec.source_trait))
-    target_filter: WireRef[FilterSpec] = filter_ref((Access.SET, MaskToColorMappingSpec.target_trait))
+    pass
 
 @register_transformation("ApplyWidthToColorMapping")
 @dataclass
 class ApplyWidthToColorMappingSpec(ApplyMappingSpec[WidthToColorMappingSpec]):
-    source_filter: WireRef[FilterSpec] = filter_ref((Access.GET, WidthToColorMappingSpec.source_trait))
-    target_filter: WireRef[FilterSpec] = filter_ref((Access.SET, WidthToColorMappingSpec.target_trait))
+    pass
 
 @register_transformation("ApplyWidthToFillColorMapping")
 @dataclass
 class ApplyWidthToFillColorMappingSpec(ApplyMappingSpec[WidthToColorMappingSpec]):
     apply_target_trait = "fill_color"
-    source_filter: WireRef[FilterSpec] = filter_ref((Access.GET, WidthToColorMappingSpec.source_trait))
-    target_filter: WireRef[FilterSpec] = filter_ref((Access.SET, "fill_color"))

@@ -1,22 +1,8 @@
-from dataclasses import MISSING, field
-from typing import Any, get_args, get_origin
+from typing import get_args, get_origin
 
-from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
+from sparc_agi.puzzle_spec.features.base import FeatureSpec
 
 WireValue = str | int | None
-
-FILTER_BINDING_KEY = "filter_binding"
-FilterBinding = tuple[Access, str]
-
-def filter_ref(
-    binding: FilterBinding | None = None,
-    *,
-    default: Any = MISSING,
-) -> Any:
-    metadata = {FILTER_BINDING_KEY: binding}
-    if default is not MISSING:
-        return field(default=default, metadata=metadata)
-    return field(metadata=metadata)
 
 class WireRef[F: FeatureSpec]:
     @classmethod

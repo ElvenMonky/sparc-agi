@@ -9,20 +9,19 @@ from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.object import BaseGroupSpec, GridSpec, ObjectSpec, PoolItemSpec
 from sparc_agi.puzzle_spec.features.pattern import PatternSlotSpec, PatternSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
-from sparc_agi.puzzle_spec.wire import WireRef, filter_ref
+from sparc_agi.puzzle_spec.wire import WireRef
 
 @register_transformation("RemoveObjects")
 @dataclass
 class RemoveObjectsSpec(TransformationSpec[BaseGroupSpec]):
     object: WireRef[BaseGroupSpec]
-    filter: WireRef[FilterSpec] = filter_ref()
+    filter: WireRef[FilterSpec]
 
     @classmethod
     def trace(cls, object: BaseGroupSpec, filter: FilterSpec) -> BaseGroupSpec:
         root = deepcopy(object)
-        slot = PoolItemSpec(value=root)
-        filter.apply(slot).value = None
-        return slot.value
+        filter.apply(root).value = None
+        return root
 
     def describe(self, ctx: Puzzle, *, object: ObjectSpec, filter: FilterSpec | Filter) -> str:
         return f"Remove {filter.spec.refer_target(ctx, object)}."

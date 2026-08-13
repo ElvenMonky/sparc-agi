@@ -1,15 +1,15 @@
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import ClassVar
 
-from sparc_agi.puzzle.features.base import Filter
+from sparc_agi.puzzle.features.base import Filter, Scalar
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
-from sparc_agi.puzzle_spec.features.filter import FilterSpec
+from sparc_agi.puzzle_spec.features.filter import FilterSpec, filtered_target
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, OrientationSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
-from sparc_agi.puzzle_spec.wire import WireRef, filter_ref
+from sparc_agi.puzzle_spec.wire import WireRef
 
 _GEOMETRIC: dict[int, str] = {
     0: "",
@@ -42,16 +42,10 @@ class ApplyFeatureSpec[Feature: FeatureSpec](TransformationSpec[ObjectSpec]):
         cls,
         feature: Feature,
         object: ObjectSpec,
-        filter: FilterSpec | None = None,
+        filter: FilterSpec,
     ) -> ObjectSpec:
         root = deepcopy(object)
-        target = root if filter is None else filter.target(root)
-        if target is None:
-            raise ValueError(f"{cls.tag()}: filter resolves to removed pool item")
-        if not type(target).has_trait_access(cls.trait, Access.SET):
-            raise ValueError(
-                f"{cls.tag()}: {type(target).tag()} lacks settable trait {cls.trait!r}"
-            )
+        target = filtered_target(root, filter, Access.SET, cls.trait)
         setattr(target, cls.trait, feature)
         return root
 
@@ -59,14 +53,14 @@ class ApplyFeatureSpec[Feature: FeatureSpec](TransformationSpec[ObjectSpec]):
 @dataclass
 class RotateSpec(ApplyFeatureSpec[OrientationSpec]):
     trait = "orientation"
-    filter: WireRef[FilterSpec] = filter_ref((Access.SET, trait), default=None)
+    filter: WireRef[FilterSpec] = field(default=None)
 
     def alias_stem(
         self,
         *,
         feature: OrientationSpec,
         object: ObjectSpec,
-        filter: FilterSpec | None = None,
+        filter: FilterSpec,
     ) -> str:
         phrase = _GEOMETRIC.get(feature.value.lo, "")
         if phrase.startswith("Flip"):
@@ -81,33 +75,28 @@ class RotateSpec(ApplyFeatureSpec[OrientationSpec]):
         *,
         feature: OrientationSpec | Scalar,
         object: ObjectSpec,
-        filter: FilterSpec | Filter | None = None,
+        filter: FilterSpec | Filter,
     ) -> str:
-        target = object if filter is None else filter.spec.target(object) or object
-        if not type(target).has_trait_access(self.trait, Access.SET):
-            return ""
         orientation = feature.spec.resolved_value(feature)
         if orientation is None:
             return ""
         phrase = _GEOMETRIC.get(orientation, "")
         if not phrase:
             return ""
-        return phrase.format(
-            target=filter.spec.refer_target(ctx, object) if filter else object.refer(ctx)
-        )
+        return phrase.format(target=filter.spec.refer_target(ctx, object))
 
 @register_transformation("ChangeColor")
 @dataclass
 class ChangeColorSpec(ApplyFeatureSpec[ColorSpec]):
     trait = "color"
-    filter: WireRef[FilterSpec] = filter_ref((Access.SET, trait), default=None)
+    filter: WireRef[FilterSpec] = field(default=None)
 
     def alias_stem(
         self,
         *,
         feature: ColorSpec,
         object: ObjectSpec,
-        filter: FilterSpec | None = None,
+        filter: FilterSpec,
     ) -> str:
         return "recolored "
 
@@ -117,23 +106,22 @@ class ChangeColorSpec(ApplyFeatureSpec[ColorSpec]):
         *,
         feature: ColorSpec | Scalar,
         object: ObjectSpec,
-        filter: FilterSpec | Filter | None = None,
+        filter: FilterSpec | Filter,
     ) -> str:
-        target = filter.spec.refer_target(ctx, object) if filter else object.refer(ctx)
-        return f"Change color of {target} to {feature.refer(ctx)}."
+        return f"Change color of {filter.spec.refer_target(ctx, object)} to {feature.refer(ctx)}."
 
 @register_transformation("ChangeFillColor")
 @dataclass
 class ChangeFillColorSpec(ApplyFeatureSpec[ColorSpec]):
     trait = "fill_color"
-    filter: WireRef[FilterSpec] = filter_ref((Access.SET, trait), default=None)
+    filter: WireRef[FilterSpec] = field(default=None)
 
     def alias_stem(
         self,
         *,
         feature: ColorSpec,
         object: ObjectSpec,
-        filter: FilterSpec | None = None,
+        filter: FilterSpec,
     ) -> str:
         return "recolored "
 
@@ -143,7 +131,6 @@ class ChangeFillColorSpec(ApplyFeatureSpec[ColorSpec]):
         *,
         feature: ColorSpec | Scalar,
         object: ObjectSpec,
-        filter: FilterSpec | Filter | None = None,
+        filter: FilterSpec | Filter,
     ) -> str:
-        target = filter.spec.refer_target(ctx, object) if filter else object.refer(ctx)
-        return f"Change fill color of {target} to {feature.refer(ctx)}."
+        return f"Change fill color of {filter.spec.refer_target(ctx, object)} to {feature.refer(ctx)}."

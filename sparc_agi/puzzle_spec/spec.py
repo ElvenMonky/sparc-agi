@@ -6,13 +6,13 @@ from sparc_agi.puzzle.features.base import Feature
 from sparc_agi.puzzle.puzzle import Puzzle, PuzzleDescription
 from sparc_agi.puzzle.slot import PuzzleCacheSlot
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, with_article
+from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.slot import CacheItemSpec, FeatureSlotSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec
 from sparc_agi.puzzle_spec.validate import (
-    validate_filter_wires,
     validate_linked_mappings,
     validate_step_outputs,
     validate_step_wires,
@@ -45,7 +45,7 @@ class PuzzleSpec:
             return item.value
         if isinstance(wire, int):
             if wire < 0 or wire > step_index:
-                raise ValueError(f"invalid wire wire {wire}")
+                raise ValueError(f"invalid wire index {wire}")
             return self.step_outputs[wire]
         raise ValueError(f"invalid wire value {wire!r}")
 
@@ -61,6 +61,8 @@ class PuzzleSpec:
                 ]
             elif value is None:
                 input[dc_field.name] = None
+                if WireRef.spec_type(dc_field.type) is FilterSpec:
+                    input[dc_field.name] = FilterSpec()
             else:
                 input[dc_field.name] = self.resolve_wire_value(step_index, value)
         return input
@@ -106,7 +108,6 @@ class PuzzleSpec:
             self.step_outputs.append(output)
         validate_linked_mappings(self)
         validate_step_wires(self)
-        validate_filter_wires(self)
         validate_step_outputs(self)
 
     def instantiate(self, rng: random.Random | None = None) -> Puzzle:
