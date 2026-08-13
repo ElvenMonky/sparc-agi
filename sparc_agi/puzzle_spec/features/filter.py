@@ -5,6 +5,7 @@ from sparc_agi.puzzle.features.base import Filter
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature
 from sparc_agi.puzzle_spec.features.object import ObjectSpec, PoolItemSpec
+from sparc_agi.puzzle_spec.range import Range
 
 @register_feature("filter")
 @dataclass
@@ -34,6 +35,14 @@ class FilterSpec(FeatureSpec):
     def target(self, root: ObjectSpec) -> ObjectSpec | None:
         return self.apply(PoolItemSpec(value=root)).value
 
+    def target_count(self, root: ObjectSpec) -> Range | int | None:
+        variants = self.apply(PoolItemSpec(value=root, variants=1)).variants
+        if variants is not None and variants.is_fixed() and variants.lo == 1:
+            return 1
+        if variants is not None:
+            return variants
+        return 2
+
     def instantiate(self, rng: random.Random) -> Filter:
         del rng
         return Filter(spec=self)
@@ -49,5 +58,5 @@ class FilterSpec(FeatureSpec):
             trait = obj.get_trait(name)
             if trait is not None and (phrase := trait.describe(ctx)):
                 parts.append(phrase)
-        parts.append(obj.kind_noun())
+        parts.append(obj.kind_noun(self.target_count(root)))
         return f"{' '.join(parts)} from {root.refer(ctx)}"

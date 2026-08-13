@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from sparc_agi.consts import MAX_ORIENTATION, MAX_SIZE
-from sparc_agi.puzzle.features.base import Arrangement
+from sparc_agi.puzzle.features.base import Arrangement, Size
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, register_feature, trait, with_article
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, CountSpec, HeightSpec, OrientationSpec, WidthSpec
@@ -35,16 +35,19 @@ class SizeSpec(FeatureSpec):
     def is_fixed(self) -> bool:
         return self.width.value.is_fixed() and self.height.value.is_fixed()
 
-    def instantiate(self, rng: random.Random) -> tuple[int, int]:
-        return (
-            self.width.instantiate(rng).value,
-            self.height.instantiate(rng).value,
+    def instantiate(self, rng: random.Random) -> Size:
+        return Size(
+            spec=self,
+            width=self.width.instantiate(rng),
+            height=self.height.instantiate(rng),
         )
 
-    def describe(self, ctx: Puzzle) -> str | None:
-        if not self.is_fixed():
+    def describe(self, ctx: Puzzle, instance: Size | None = None) -> str | None:
+        width = self.width.describe(ctx, instance.width if instance else None)
+        height = self.height.describe(ctx, instance.height if instance else None)
+        if width is None or height is None:
             return None
-        return f"{self.width.value.describe()}x{self.height.value.describe()}"
+        return f"{width}x{height}"
 
 @register_feature("position")
 @dataclass
@@ -70,8 +73,9 @@ class ArrangementSpec(FeatureSpec):
 
     def instantiate(self, rng: random.Random) -> Arrangement:
         if self.size is None:
-            return Arrangement(spec=self, size=(0, 0), value=0)
-        width, height = self.size.instantiate(rng)
+            return Arrangement(spec=self, size=None, value=0)
+        size = self.size.instantiate(rng)
+        width, height = size.width.value, size.height.value
         cells = width * height
         if self.count is None:
             mask = (1 << cells) - 1
@@ -80,10 +84,12 @@ class ArrangementSpec(FeatureSpec):
             mask = 0
             for index in rng.sample(range(cells), count):
                 mask |= 1 << index
-        return Arrangement(spec=self, size=(width, height), value=mask)
+        return Arrangement(spec=self, size=size, value=mask)
 
-    def describe(self, ctx: Puzzle) -> str:
-        if self.size is not None and (phrase := self.size.describe(ctx)):
+    def describe(self, ctx: Puzzle, instance: Arrangement | None = None) -> str:
+        if self.size is not None and (
+            phrase := self.size.describe(ctx, instance.size if instance else None)
+        ):
             return with_article(f"{phrase} grid")
         return "an arrangement"
 
@@ -100,7 +106,8 @@ class GridArrangementSpec(ArrangementSpec):
     def instantiate(self, rng: random.Random) -> Arrangement:
         if self.count is None:
             return super().instantiate(rng)
-        width, height = self.size.instantiate(rng)
+        size = self.size.instantiate(rng)
+        width, height = size.width.value, size.height.value
         cells = width * height
         count = min(max(0, self.count.instantiate(rng).value), cells)
         orientation = self.orientation.instantiate(rng).value
@@ -117,7 +124,7 @@ class GridArrangementSpec(ArrangementSpec):
         mask = 0
         for _, _, index in order[:count]:
             mask |= 1 << index
-        return Arrangement(spec=self, size=(width, height), value=mask)
+        return Arrangement(spec=self, size=size, value=mask)
 
 @dataclass
 class RaySpec:

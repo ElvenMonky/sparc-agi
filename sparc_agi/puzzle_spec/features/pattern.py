@@ -54,7 +54,8 @@ class PatternSpec(FeatureSpec):
         del rng
         return Pattern(spec=self)
 
-    def describe(self, ctx: Puzzle) -> str:
+    def describe(self, ctx: Puzzle, instance: Pattern | None = None) -> str:
+        del ctx, instance
         parts: list[str] = []
         if self.prefix:
             parts.append(f"{self.prefix} prefix")
@@ -76,17 +77,14 @@ class LinearPatternSpec(PatternSpec):
     def instantiate(self, rng: random.Random) -> LinearPattern:
         return LinearPattern(
             spec=self,
-            direction=self.direction.instantiate(rng).value,
+            direction=self.direction.instantiate(rng),
         )
 
-    def describe(self, ctx: Puzzle) -> str:
-        body = super().describe(ctx)
+    def describe(self, ctx: Puzzle, instance: LinearPattern | None = None) -> str:
+        body = super().describe(ctx, instance)
         if not body:
             return ""
-        direction = self.direction.value
-        if direction.lo != direction.hi:
+        direction = self.direction.resolved_value(instance.direction if instance else None)
+        if direction is None:
             return body
-        phrase = _LINEAR_DIRECTION[direction.lo]
-        if phrase:
-            return f"{phrase} {body}"
-        return body
+        return f"{_LINEAR_DIRECTION[direction]} {body}"

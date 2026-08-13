@@ -2,7 +2,9 @@ import random
 from dataclasses import dataclass, field, fields
 from typing import Any, get_args, get_origin
 
+from sparc_agi.puzzle.features.base import Feature
 from sparc_agi.puzzle.puzzle import Puzzle, PuzzleDescription
+from sparc_agi.puzzle.slot import PuzzleCacheSlot
 from sparc_agi.puzzle_spec.features.base import FeatureSpec, with_article
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
@@ -63,6 +65,28 @@ class PuzzleSpec:
                 input[dc_field.name] = self.resolve_wire_value(step_index, value)
         return input
 
+    def get_describe_input(
+        self,
+        step: TransformationSpec,
+        step_index: int,
+        ctx: Puzzle,
+    ) -> dict[str, FeatureSpec | Feature | list[FeatureSpec]]:
+        input = self.get_input(step, step_index)
+        for dc_field in fields(type(step)):
+            if WireRef.spec_type(dc_field.type) is None:
+                continue
+            if get_origin(dc_field.type) is list:
+                continue
+            wire = getattr(step, dc_field.name)
+            if not isinstance(wire, str):
+                continue
+            slot = ctx.cache.get(wire)
+            if slot is None:
+                raise ValueError(f"unknown cache key {wire!r}")
+            if isinstance(slot, PuzzleCacheSlot):
+                input[dc_field.name] = slot.value
+        return input
+
     def __post_init__(self) -> None:
         self.step_outputs = [self.input.value]
         self.step_outputs[0].alias = f"input {self.step_outputs[0].kind_noun()}"
@@ -95,8 +119,7 @@ class PuzzleSpec:
             body = with_article(body)
         steps: list[str] = []
         for step_index, step in enumerate(self.steps):
-            input = self.get_input(step, step_index)
-            if text := step.describe(ctx, **input):
+            if text := step.describe(ctx, **self.get_describe_input(step, step_index, ctx)):
                 steps.append(text)
         ctx.description = PuzzleDescription(
             input=f"Puzzle input consists of {body}.",

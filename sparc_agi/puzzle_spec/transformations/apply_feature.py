@@ -2,6 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import ClassVar
 
+from sparc_agi.puzzle.features.base import Filter
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
@@ -78,17 +79,22 @@ class RotateSpec(ApplyFeatureSpec[OrientationSpec]):
         self,
         ctx: Puzzle,
         *,
-        feature: OrientationSpec,
+        feature: OrientationSpec | Scalar,
         object: ObjectSpec,
-        filter: FilterSpec | None = None,
+        filter: FilterSpec | Filter | None = None,
     ) -> str:
-        target = object if filter is None else filter.target(object) or object
+        target = object if filter is None else filter.spec.target(object) or object
         if not type(target).has_trait_access(self.trait, Access.SET):
             return ""
-        phrase = _GEOMETRIC.get(feature.value.lo, "")
+        orientation = feature.spec.resolved_value(feature)
+        if orientation is None:
+            return ""
+        phrase = _GEOMETRIC.get(orientation, "")
         if not phrase:
             return ""
-        return phrase.format(target=filter.refer_target(ctx, object) if filter else object.refer(ctx))
+        return phrase.format(
+            target=filter.spec.refer_target(ctx, object) if filter else object.refer(ctx)
+        )
 
 @register_transformation("ChangeColor")
 @dataclass
@@ -109,11 +115,11 @@ class ChangeColorSpec(ApplyFeatureSpec[ColorSpec]):
         self,
         ctx: Puzzle,
         *,
-        feature: ColorSpec,
+        feature: ColorSpec | Scalar,
         object: ObjectSpec,
-        filter: FilterSpec | None = None,
+        filter: FilterSpec | Filter | None = None,
     ) -> str:
-        target = filter.refer_target(ctx, object) if filter else object.refer(ctx)
+        target = filter.spec.refer_target(ctx, object) if filter else object.refer(ctx)
         return f"Change color of {target} to {feature.refer(ctx)}."
 
 @register_transformation("ChangeFillColor")
@@ -135,9 +141,9 @@ class ChangeFillColorSpec(ApplyFeatureSpec[ColorSpec]):
         self,
         ctx: Puzzle,
         *,
-        feature: ColorSpec,
+        feature: ColorSpec | Scalar,
         object: ObjectSpec,
-        filter: FilterSpec | None = None,
+        filter: FilterSpec | Filter | None = None,
     ) -> str:
-        target = filter.refer_target(ctx, object) if filter else object.refer(ctx)
+        target = filter.spec.refer_target(ctx, object) if filter else object.refer(ctx)
         return f"Change fill color of {target} to {feature.refer(ctx)}."

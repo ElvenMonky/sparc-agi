@@ -30,18 +30,26 @@ class ScalarSpec(FeatureSpec):
     def instantiate(self, rng: random.Random) -> Scalar:
         return Scalar(spec=self, value=self.value.instantiate(rng))
 
-    def describe(self, ctx: Puzzle) -> str:
-        return f"{type(self).tag()} {self.value.describe()}"
+    def resolved_value(self, instance: Scalar | None = None) -> int | None:
+        if isinstance(instance, Scalar):
+            return instance.value
+        if self.value.is_fixed():
+            return self.value.lo
+        return None
+
+    def describe(self, ctx: Puzzle, instance: Scalar | None = None) -> str | None:
+        value = self.resolved_value(instance)
+        return None if value is None else str(value)
 
 @register_feature("color")
 @dataclass
 class ColorSpec(ScalarSpec):
     value: Range[TRANSPARENT_COLOR, MAX_COLOR] = trait(default_factory=lambda: Range(1, MAX_COLOR))
 
-    def describe(self, ctx: Puzzle) -> str | None:
-        if (color := self.value).lo != color.hi:
+    def describe(self, ctx: Puzzle, instance: Scalar | None = None) -> str | None:
+        logical = self.resolved_value(instance)
+        if logical is None:
             return None
-        logical = color.lo
         if logical == TRANSPARENT_COLOR:
             return "transparent"
         display = ctx.palette[logical] if 0 <= logical < len(ctx.palette) else logical

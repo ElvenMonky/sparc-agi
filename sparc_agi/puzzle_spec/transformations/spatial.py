@@ -1,6 +1,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 
+from sparc_agi.puzzle.features.base import Arrangement, Filter, Pattern
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.arrangement import ArrangementSlotSpec, ArrangementSpec
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
@@ -23,8 +24,8 @@ class RemoveObjectsSpec(TransformationSpec[BaseGroupSpec]):
         filter.apply(slot).value = None
         return slot.value
 
-    def describe(self, ctx: Puzzle, *, object: ObjectSpec, filter: FilterSpec) -> str:
-        return f"Remove {filter.refer_target(ctx, object)}."
+    def describe(self, ctx: Puzzle, *, object: ObjectSpec, filter: FilterSpec | Filter) -> str:
+        return f"Remove {filter.spec.refer_target(ctx, object)}."
 
 @register_transformation("ArrangeObjects")
 @dataclass
@@ -59,8 +60,8 @@ class ArrangeObjectsSpec(TransformationSpec[GridSpec]):
         self,
         ctx: Puzzle,
         *,
-        arrangement: ArrangementSpec,
-        pattern: PatternSpec | None,
+        arrangement: ArrangementSpec | Arrangement,
+        pattern: PatternSpec | Pattern | None,
         pool: list[ObjectSpec],
     ) -> str:
         refs = [f"{obj.refer(ctx)} ({index})" for index, obj in enumerate(pool)]

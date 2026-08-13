@@ -4,6 +4,7 @@ from typing import Any, Callable, ClassVar, Self, TypeVar, get_args
 
 import cattrs
 
+from sparc_agi.puzzle.features.base import Feature
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.range import Range
 
@@ -178,10 +179,14 @@ class FeatureSpec:
         else:
             slot.value = feature
 
-    def refer(self, ctx: Puzzle) -> str:
-        return self.alias or self.describe(ctx)
+    @property
+    def spec(self) -> Self:
+        return self
 
-    def describe(self, ctx: Puzzle) -> str:
+    def refer(self, ctx: Puzzle, instance: Feature | None = None) -> str:
+        return self.alias or self.describe(ctx, instance)
+
+    def describe(self, ctx: Puzzle, instance: Feature | None = None) -> str:
         return type(self).tag()
 
     @classmethod

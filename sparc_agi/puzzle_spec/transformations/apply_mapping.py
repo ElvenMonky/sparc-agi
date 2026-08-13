@@ -2,6 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from typing import ClassVar
 
+from sparc_agi.puzzle.features.base import Filter, Mapping
 from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
@@ -11,15 +12,15 @@ from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, regis
 from sparc_agi.puzzle_spec.wire import WireRef, filter_ref
 
 @dataclass
-class ApplyMappingSpec[Mapping: MappingSpec](TransformationSpec[ObjectSpec]):
-    mapping: WireRef[Mapping]
+class ApplyMappingSpec[M: MappingSpec](TransformationSpec[ObjectSpec]):
+    mapping: WireRef[M]
     object: WireRef[ObjectSpec]
     source_filter: WireRef[FilterSpec]
     target_filter: WireRef[FilterSpec]
     apply_target_trait: ClassVar[str | None] = None
 
     @classmethod
-    def _target_trait(cls, mapping: Mapping) -> str:
+    def _target_trait(cls, mapping: MappingSpec) -> str:
         trait = cls.apply_target_trait or type(mapping).target_trait
         if trait is None:
             raise ValueError(f"{cls.tag()}: mapping lacks target trait")
@@ -28,7 +29,7 @@ class ApplyMappingSpec[Mapping: MappingSpec](TransformationSpec[ObjectSpec]):
     @classmethod
     def trace(
         cls,
-        mapping: Mapping,
+        mapping: M,
         object: ObjectSpec,
         source_filter: FilterSpec,
         target_filter: FilterSpec,
@@ -69,18 +70,18 @@ class ApplyMappingSpec[Mapping: MappingSpec](TransformationSpec[ObjectSpec]):
         self,
         ctx: Puzzle,
         *,
-        mapping: Mapping,
+        mapping: MappingSpec | Mapping,
         object: ObjectSpec,
-        source_filter: FilterSpec,
-        target_filter: FilterSpec,
+        source_filter: FilterSpec | Filter,
+        target_filter: FilterSpec | Filter,
     ) -> str:
-        mapping_cls = type(mapping)
+        mapping_cls = type(mapping.spec)
         source_trait = (mapping_cls.source_trait or "").rsplit(".", 1)[-1].replace("_", " ")
-        target_trait = type(self)._target_trait(mapping).rsplit(".", 1)[-1].replace("_", " ")
-        source = source_filter.refer_target(ctx, object)
-        if source_filter.target(object) is target_filter.target(object):
+        target_trait = type(self)._target_trait(mapping.spec).rsplit(".", 1)[-1].replace("_", " ")
+        source = source_filter.spec.refer_target(ctx, object)
+        if source_filter.spec.target(object) is target_filter.spec.target(object):
             return f"Change {target_trait} of {source} based on {source_trait}."
-        target = target_filter.refer_target(ctx, object)
+        target = target_filter.spec.refer_target(ctx, object)
         return f"Change {target_trait} of {target} based on {source_trait} of {source}."
 
 @register_transformation("ApplyMaskToColorMapping")
