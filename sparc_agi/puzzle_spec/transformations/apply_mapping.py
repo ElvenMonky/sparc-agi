@@ -8,11 +8,11 @@ from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.mapping import MappingSpec, MaskToColorMappingSpec, WidthToColorMappingSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
-from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
+from sparc_agi.puzzle_spec.transformations.base import Transformation, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef
 
 @dataclass
-class ApplyMappingSpec[M: MappingSpec](TransformationSpec[ObjectSpec]):
+class ApplyMapping[M: MappingSpec](Transformation[ObjectSpec]):
     mapping: WireRef[M]
     object: WireRef[ObjectSpec]
     source_filter: WireRef[FilterSpec]
@@ -78,15 +78,15 @@ class ApplyMappingSpec[M: MappingSpec](TransformationSpec[ObjectSpec]):
 
 @register_transformation("ApplyMaskToColorMapping")
 @dataclass
-class ApplyMaskToColorMappingSpec(ApplyMappingSpec[MaskToColorMappingSpec]):
+class ApplyMaskToColorMapping(ApplyMapping[MaskToColorMappingSpec]):
     pass
 
 @register_transformation("ApplyWidthToColorMapping")
 @dataclass
-class ApplyWidthToColorMappingSpec(ApplyMappingSpec[WidthToColorMappingSpec]):
+class ApplyWidthToColorMapping(ApplyMapping[WidthToColorMappingSpec]):
     pass
 
 @register_transformation("ApplyWidthToFillColorMapping")
 @dataclass
-class ApplyWidthToFillColorMappingSpec(ApplyMappingSpec[WidthToColorMappingSpec]):
+class ApplyWidthToFillColorMapping(ApplyMapping[WidthToColorMappingSpec]):
     apply_target_trait = "fill_color"

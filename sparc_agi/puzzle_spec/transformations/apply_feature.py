@@ -9,7 +9,7 @@ from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, OrientationSpec
 from sparc_agi.puzzle_spec.features.arrangement import SizeSpec
-from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
+from sparc_agi.puzzle_spec.transformations.base import Transformation, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef
 
 _GEOMETRIC: dict[int, str] = {
@@ -32,7 +32,7 @@ _GEOMETRIC: dict[int, str] = {
 }
 
 @dataclass
-class ApplyFeature[Feature: FeatureSpec](TransformationSpec[ObjectSpec]):
+class ApplyFeature[Feature: FeatureSpec](Transformation[ObjectSpec]):
     feature: WireRef[Feature]
     object: WireRef[ObjectSpec]
     filter: WireRef[FilterSpec]

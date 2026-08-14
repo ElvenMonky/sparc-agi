@@ -8,12 +8,12 @@ from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.object import BaseGroupSpec, GridSpec, ObjectSpec, PoolItemSpec, pool_copy_phrase
 from sparc_agi.puzzle_spec.features.pattern import PatternSlotSpec, PatternSpec
-from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
+from sparc_agi.puzzle_spec.transformations.base import Transformation, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef
 
 @register_transformation("RemoveObjects")
 @dataclass
-class RemoveObjectsSpec(TransformationSpec[BaseGroupSpec]):
+class RemoveObjects(Transformation[BaseGroupSpec]):
     object: WireRef[BaseGroupSpec]
     filter: WireRef[FilterSpec]
 
@@ -28,7 +28,7 @@ class RemoveObjectsSpec(TransformationSpec[BaseGroupSpec]):
 
 @register_transformation("ArrangeObjects")
 @dataclass
-class ArrangeObjectsSpec(TransformationSpec[GridSpec]):
+class ArrangeObjects(Transformation[GridSpec]):
     arrangement: WireRef[ArrangementSpec]
     pattern: WireRef[PatternSpec]
     pool: list[WireRef[ObjectSpec]]

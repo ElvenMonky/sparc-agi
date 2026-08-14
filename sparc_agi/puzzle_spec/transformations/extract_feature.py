@@ -7,11 +7,11 @@ from sparc_agi.puzzle_spec.features.arrangement import ArrangementSpec
 from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
-from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
+from sparc_agi.puzzle_spec.transformations.base import Transformation, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef
 
 @dataclass
-class ExtractFeatureSpec[Output: FeatureSpec](TransformationSpec[Output]):
+class ExtractFeature[Output: FeatureSpec](Transformation[Output]):
     object: WireRef[ObjectSpec]
     filter: WireRef[FilterSpec] = field(default=None)
     trait: ClassVar[str]
@@ -39,5 +39,5 @@ class ExtractFeatureSpec[Output: FeatureSpec](TransformationSpec[Output]):
 
 @register_transformation("ExtractArrangement")
 @dataclass
-class ExtractArrangementSpec(ExtractFeatureSpec[ArrangementSpec]):
+class ExtractArrangement(ExtractFeature[ArrangementSpec]):
     trait = "arrangement"

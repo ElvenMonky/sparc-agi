@@ -6,12 +6,12 @@ from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.wire import WireValue
 
 @dataclass
-class TransformationSpec[Output: FeatureSpec]:
+class Transformation[Output: FeatureSpec]:
     REGISTRY: ClassVar[dict[str, type[Self]]] = {}
 
     @classmethod
     def tag(cls) -> str:
-        for name, registered in TransformationSpec.REGISTRY.items():
+        for name, registered in Transformation.REGISTRY.items():
             if registered is cls:
                 return name
         raise ValueError(f"{cls.__name__} is not registered")
@@ -21,7 +21,7 @@ class TransformationSpec[Output: FeatureSpec]:
         for spec_cls in cls.__mro__:
             for base in getattr(spec_cls, "__orig_bases__", ()):
                 origin = get_origin(base) or base
-                if origin is TransformationSpec:
+                if origin is Transformation:
                     args = get_args(base)
                     if len(args) == 1 and FeatureSpec.is_feature(args[0]):
                         return args[0]
@@ -30,7 +30,7 @@ class TransformationSpec[Output: FeatureSpec]:
                     continue
                 for parent in getattr(origin, "__orig_bases__", ()):
                     parent_origin = get_origin(parent) or parent
-                    if parent_origin is not TransformationSpec:
+                    if parent_origin is not Transformation:
                         continue
                     parent_args = get_args(parent)
                     if len(parent_args) != 1:
@@ -41,7 +41,7 @@ class TransformationSpec[Output: FeatureSpec]:
                     specialized = type_args[0]
                     if FeatureSpec.is_feature(specialized):
                         return specialized
-        raise ValueError(f"{cls.__name__} must specialize TransformationSpec[FeatureSpec]")
+        raise ValueError(f"{cls.__name__} must specialize Transformation[FeatureSpec]")
 
     @classmethod
     def structure(cls, wires: object, _: type, __: Any) -> Self:
@@ -87,12 +87,12 @@ class TransformationSpec[Output: FeatureSpec]:
 
     @classmethod
     def structure_step(cls, value: object, _: type, __: Any) -> Self:
-        if isinstance(value, TransformationSpec):
+        if isinstance(value, Transformation):
             return value
         if not isinstance(value, dict) or len(value) != 1:
             raise ValueError(f"step must be a single-key object, got {value!r}")
         (tag, wires), = value.items()
-        spec_cls = TransformationSpec.REGISTRY.get(tag)
+        spec_cls = Transformation.REGISTRY.get(tag)
         if spec_cls is None:
             raise ValueError(f"unknown transformation {tag!r}")
         return spec_cls.structure(wires, spec_cls, None)
@@ -107,18 +107,18 @@ class TransformationSpec[Output: FeatureSpec]:
     def describe(self, ctx: Puzzle, **input: Any) -> str:
         return ""
 
-T = TypeVar("T", bound=TransformationSpec)
+T = TypeVar("T", bound=Transformation)
 
 def register_transformation(name: str) -> Callable[[type[T]], type[T]]:
     def decorator(spec_cls: type[T]) -> type[T]:
-        if not issubclass(spec_cls, TransformationSpec):
-            raise TypeError(f"{spec_cls.__name__} must subclass TransformationSpec")
-        if name in TransformationSpec.REGISTRY:
+        if not issubclass(spec_cls, Transformation):
+            raise TypeError(f"{spec_cls.__name__} must subclass Transformation")
+        if name in Transformation.REGISTRY:
             raise ValueError(
                 f"transformation {name!r} already registered as "
-                f"{TransformationSpec.REGISTRY[name].__name__}"
+                f"{Transformation.REGISTRY[name].__name__}"
             )
-        TransformationSpec.REGISTRY[name] = spec_cls
+        Transformation.REGISTRY[name] = spec_cls
         return spec_cls
 
     return decorator

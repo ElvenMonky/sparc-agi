@@ -15,7 +15,7 @@ from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.sequence import Sequence
 from sparc_agi.puzzle_spec.spec import PuzzleSpec
-from sparc_agi.puzzle_spec.transformations.base import TransformationSpec
+from sparc_agi.puzzle_spec.transformations.base import Transformation
 
 def _field_type(cls: type, name: str) -> type:
     hint = get_type_hints(cls, include_extras=True)[name]
@@ -92,12 +92,12 @@ def _register_hooks(converter: cattrs.Converter) -> None:
     converter.register_unstructure_hook_func(_is_sequence_type, lambda inst: inst.unstructure())
 
     converter.register_structure_hook(
-        TransformationSpec,
-        lambda value, typ: TransformationSpec.structure_step(value, typ, converter),
+        Transformation,
+        lambda value, typ: Transformation.structure_step(value, typ, converter),
     )
     converter.register_unstructure_hook(
-        TransformationSpec,
-        lambda inst: TransformationSpec.unstructure_step(inst),
+        Transformation,
+        lambda inst: Transformation.unstructure_step(inst),
     )
 
     for cls in FeatureSlotSpec.__subclasses__():

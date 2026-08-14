@@ -11,7 +11,7 @@ from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.palette import PaletteSpec
 from sparc_agi.puzzle_spec.range import Range
 from sparc_agi.puzzle_spec.slot import CacheItemSpec, FeatureSlotSpec
-from sparc_agi.puzzle_spec.transformations.base import TransformationSpec
+from sparc_agi.puzzle_spec.transformations.base import Transformation
 from sparc_agi.puzzle_spec.validate import (
     validate_linked_mappings,
     validate_step_outputs,
@@ -32,7 +32,7 @@ class SamplesSpec:
 class PuzzleSpec:
     input: InputSpec
     samples: SamplesSpec
-    steps: list[TransformationSpec]
+    steps: list[Transformation]
     cache: dict[str, CacheItemSpec] = field(default_factory=dict)
     palette: PaletteSpec = field(default_factory=PaletteSpec)
     step_outputs: list[FeatureSpec] = field(init=False, default_factory=list)
@@ -49,7 +49,7 @@ class PuzzleSpec:
             return self.step_outputs[wire]
         raise ValueError(f"invalid wire value {wire!r}")
 
-    def get_input(self, step: TransformationSpec, step_index: int) -> dict[str, Any]:
+    def get_input(self, step: Transformation, step_index: int) -> dict[str, Any]:
         input: dict[str, Any] = {}
         for dc_field in fields(type(step)):
             if WireRef.spec_type(dc_field.type) is None:
@@ -69,7 +69,7 @@ class PuzzleSpec:
 
     def get_describe_input(
         self,
-        step: TransformationSpec,
+        step: Transformation,
         step_index: int,
         ctx: Puzzle,
     ) -> dict[str, FeatureSpec | Feature | list[FeatureSpec]]:
