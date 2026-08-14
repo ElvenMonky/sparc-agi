@@ -232,5 +232,74 @@
         "ApplyWidthToFillColorMapping": ["a", 0, "b", "b"]
       }
     ]
+  },
+  "017c7c7b": {
+    "cache": {
+      "a": {
+        "color": 2
+      },
+      "b": {
+        "filter": {
+          "index": [0, 0]
+        }
+      },
+      "c": {
+        "size": {
+          "width": 3,
+          "height": 9
+        }
+      }
+    },
+    "input": {
+      "object.grid": {
+        "size": {
+          "width": 3,
+          "height": 6
+        },
+        "margin": {
+          "bottom": [-2, 0]
+        },
+        "arrangement": {
+          "arrangement.grid": {
+          }
+        },
+        "pool": [
+          {
+            "object.grid": {
+              "arrangement": {
+                "arrangement": {
+                  "count": [4, 6],
+                  "size": {
+                    "width": 3,
+                    "height": [3, 4]
+                  }
+                }
+              },
+              "pool": [
+                {
+                  "object.point": {
+                    "color": 1
+                  },
+                  "variants": 1
+                }
+              ]
+            },
+            "variants": 1
+          }
+        ]
+      }
+    },
+    "samples": {
+      "train": [3, 4],
+      "test": [1, 2]
+    },
+    "steps": [
+      {
+        "ChangeColor": ["a", 0, "b"]
+      },
+      {
+        "Resize": ["c", 1]
+      }
+    ]
   }
 }

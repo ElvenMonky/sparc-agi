@@ -8,6 +8,7 @@ from sparc_agi.puzzle_spec.features.base import Access, FeatureSpec
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
 from sparc_agi.puzzle_spec.features.object import ObjectSpec
 from sparc_agi.puzzle_spec.features.scalar import ColorSpec, OrientationSpec
+from sparc_agi.puzzle_spec.features.arrangement import SizeSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef
 
@@ -31,7 +32,7 @@ _GEOMETRIC: dict[int, str] = {
 }
 
 @dataclass
-class ApplyFeatureSpec[Feature: FeatureSpec](TransformationSpec[ObjectSpec]):
+class ApplyFeature[Feature: FeatureSpec](TransformationSpec[ObjectSpec]):
     feature: WireRef[Feature]
     object: WireRef[ObjectSpec]
     filter: WireRef[FilterSpec]
@@ -50,9 +51,19 @@ class ApplyFeatureSpec[Feature: FeatureSpec](TransformationSpec[ObjectSpec]):
         setattr(target, cls.trait, feature)
         return root
 
+    def describe(
+        self,
+        ctx: Puzzle,
+        *,
+        feature: Feature,
+        object: ObjectSpec,
+        filter: FilterSpec | Filter,
+    ) -> str:
+        return f"Change {self.trait} of {filter.spec.refer_target(ctx, object)} to {feature.refer(ctx)}."
+
 @register_transformation("Rotate")
 @dataclass
-class RotateSpec(ApplyFeatureSpec[OrientationSpec]):
+class Rotate(ApplyFeature[OrientationSpec]):
     trait = "orientation"
     filter: WireRef[FilterSpec] = field(default=None)
 
@@ -88,7 +99,7 @@ class RotateSpec(ApplyFeatureSpec[OrientationSpec]):
 
 @register_transformation("ChangeColor")
 @dataclass
-class ChangeColorSpec(ApplyFeatureSpec[ColorSpec]):
+class ChangeColor(ApplyFeature[ColorSpec]):
     trait = "color"
     filter: WireRef[FilterSpec] = field(default=None)
 
@@ -113,7 +124,7 @@ class ChangeColorSpec(ApplyFeatureSpec[ColorSpec]):
 
 @register_transformation("ChangeFillColor")
 @dataclass
-class ChangeFillColorSpec(ApplyFeatureSpec[ColorSpec]):
+class ChangeFillColor(ApplyFeature[ColorSpec]):
     trait = "fill_color"
     filter: WireRef[FilterSpec] = field(default=None)
 
@@ -135,3 +146,18 @@ class ChangeFillColorSpec(ApplyFeatureSpec[ColorSpec]):
         filter: FilterSpec | Filter,
     ) -> str:
         return f"Change fill color of {filter.spec.refer_target(ctx, object)} to {feature.refer(ctx)}."
+
+@register_transformation("Resize")
+@dataclass
+class Resize(ApplyFeature[SizeSpec]):
+    trait = "size"
+    filter: WireRef[FilterSpec] = field(default=None)
+
+    def alias_stem(
+        self,
+        *,
+        feature: SizeSpec,
+        object: ObjectSpec,
+        filter: FilterSpec,
+    ) -> str:
+        return "resized "

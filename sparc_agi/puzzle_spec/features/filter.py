@@ -42,6 +42,8 @@ class FilterSpec(FeatureSpec):
         return Filter(spec=self)
 
     def refer_target(self, ctx: Puzzle, root: ObjectSpec) -> str:
+        if not self.index and not self.criteria:
+            return root.refer(ctx)
         slot = self.apply(root)
         parts: list[str] = []
         for name in self.criteria:

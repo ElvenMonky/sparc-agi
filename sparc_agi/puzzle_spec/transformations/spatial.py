@@ -6,7 +6,7 @@ from sparc_agi.puzzle.puzzle import Puzzle
 from sparc_agi.puzzle_spec.features.arrangement import ArrangementSlotSpec, ArrangementSpec
 from sparc_agi.puzzle_spec.features.base import FeatureSpec
 from sparc_agi.puzzle_spec.features.filter import FilterSpec
-from sparc_agi.puzzle_spec.features.object import BaseGroupSpec, GridSpec, ObjectSpec, PoolItemSpec
+from sparc_agi.puzzle_spec.features.object import BaseGroupSpec, GridSpec, ObjectSpec, PoolItemSpec, pool_copy_phrase
 from sparc_agi.puzzle_spec.features.pattern import PatternSlotSpec, PatternSpec
 from sparc_agi.puzzle_spec.transformations.base import TransformationSpec, register_transformation
 from sparc_agi.puzzle_spec.wire import WireRef
@@ -64,15 +64,7 @@ class ArrangeObjectsSpec(TransformationSpec[GridSpec]):
         pool: list[ObjectSpec],
     ) -> str:
         refs = [f"{obj.refer(ctx)} ({index})" for index, obj in enumerate(pool)]
-        if not refs:
-            copies = "no items"
-        elif len(refs) == 1:
-            copies = f"copies of {refs[0]}"
-        elif len(refs) == 2:
-            copies = f"copies of {refs[0]} and {refs[1]}"
-        else:
-            *rest, last = refs
-            copies = "copies of " + ", ".join(rest) + f", and {last}"
+        copies = pool_copy_phrase(refs)
         place = arrangement.refer(ctx)
         pattern_desc = ""
         if pattern is not None and (desc := pattern.refer(ctx)):

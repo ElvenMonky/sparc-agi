@@ -72,6 +72,20 @@ class PointSpec(ObjectSpec):
         default_factory=lambda: SizeSpec(width=WidthSpec(Range(1)), height=HeightSpec(Range(1))),
     )
 
+    def describe_head(
+        self,
+        ctx: Puzzle,
+        *,
+        count: Range | int | None = None,
+        article: bool = False,
+    ) -> str:
+        head = self.kind_noun(count)
+        if phrase := self.color.describe(ctx):
+            head = f"{phrase} {head}"
+        if article:
+            head = with_article(head)
+        return head
+
 @dataclass
 class GeometrySpec(ObjectSpec):
     fill_color: ColorSpec | None = trait(default=None)
@@ -108,23 +122,33 @@ class RectangleSpec(GeometrySpec):
 class BaseGroupSpec(ObjectSpec):
     pool: list[PoolItemSpec] = trait(access=Access.SET, default_factory=list)
 
+def pool_copy_phrase(refs: list[str]) -> str:
+    if not refs:
+        return "no items"
+    if len(refs) == 1:
+        return f"copies of {refs[0]}"
+    if len(refs) == 2:
+        return f"copies of {refs[0]} and {refs[1]}"
+    *rest, last = refs
+    return "copies of " + ", ".join(rest) + f", and {last}"
+
 @register_feature("object.group")
 @dataclass
 class GroupSpec(BaseGroupSpec):
     count: CountSpec = trait(default_factory=CountSpec)
     draft: PatternSpec | None = trait(default=None)
 
-    def describe(self, ctx: Puzzle) -> str:
-        count = self.count.value
+    def describe(self, ctx: Puzzle, *, count: Range | int | None = None, article: bool = True) -> str:
+        group_count = self.count.value
         prefix = self.draft.prefix if self.draft else []
         parts: list[str] = []
         for index in prefix:
             if index < len(self.pool) and (member := self.pool[index].value) is not None:
                 parts.append(member.describe(ctx, article=True))
         remaining = Range(
-            max(0, count.lo - len(prefix)),
-            max(0, count.hi - len(prefix)),
-            count.step,
+            max(0, group_count.lo - len(prefix)),
+            max(0, group_count.hi - len(prefix)),
+            group_count.step,
         )
         if remaining.hi > 0:
             members = " and ".join(
@@ -132,7 +156,8 @@ class GroupSpec(BaseGroupSpec):
                 for item in self.pool
                 if item.value is not None
             )
-            parts.append(with_article(f"group of {remaining.describe()} {members}"))
+            phrase = f"{self.kind_noun(count)} of {remaining.describe()} {members}"
+            parts.append(with_article(phrase) if article else phrase)
         head = " and ".join(parts)
         if size := self.size.describe(ctx):
             head += f" within {size} area"
@@ -141,8 +166,39 @@ class GroupSpec(BaseGroupSpec):
 @register_feature("object.grid")
 @dataclass
 class GridSpec(BaseGroupSpec):
-    arrangement: ArrangementSlotSpec = trait(default_factory=ArrangementSlotSpec(GridArrangementSpec()))
+    arrangement: ArrangementSlotSpec = trait(default_factory=lambda: ArrangementSlotSpec(GridArrangementSpec()))
     pattern: PatternSlotSpec | None = trait(default=None)
+
+    def _has_custom_pool(self) -> bool:
+        return bool(self.pool)
+
+    def describe(self, ctx: Puzzle, *, count: Range | int | None = None, article: bool = False) -> str:
+        body = self.describe_head(ctx, count=count, article=article) + self.describe_tail(ctx)
+        if self._has_custom_pool():
+            arrangement_count = (
+                self.arrangement.value.count.value
+                if self.arrangement.value.count is not None
+                else None
+            )
+            pool_parts: list[str] = []
+            for item in self.pool:
+                if item.value is None:
+                    continue
+                if item.variants == Range(1):
+                    ref = pool_copy_phrase([item.value.describe(ctx, article=True)])
+                else:
+                    ref = item.value.describe(ctx, count=arrangement_count)
+                pool_parts.append(ref)
+            members = " and ".join(pool_parts)
+            verb = "consist" if self.is_plural(count) else "consists"
+            if arrangement_count is not None:
+                body += f" that {verb} of {arrangement_count.describe()} {members}"
+            else:
+                body += f" that {verb} of {members}"
+            if self.pattern is not None and self.pattern.value is not None:
+                if desc := self.pattern.value.refer(ctx):
+                    body += f" using {desc}"
+        return body
 
 @register_feature("object.glyph")
 @dataclass
@@ -164,6 +220,9 @@ class GlyphSpec(GridSpec):
             value=PointSpec(color=self.color),
         )]
 
+    def _has_custom_pool(self) -> bool:
+        return False
+
 @register_feature("object.sprite")
 @dataclass
 class SpriteSpec(BaseGroupSpec):
@@ -183,7 +242,7 @@ class SpriteSpec(BaseGroupSpec):
 
 @register_feature("object.tree_structure")
 @dataclass
-class TreeStructureSpec(BaseGroupSpec):
+class TreeStructureSpec(GridSpec):
     count: CountSpec = trait(default_factory=CountSpec)
     arrangement: ArrangementSlotSpec = trait(
         access=Access.GET,
@@ -209,15 +268,3 @@ class TreeStructureSpec(BaseGroupSpec):
         if not isinstance(value, PointSpec):
             return True
         return value.color != self.color
-
-    def describe(self, ctx: Puzzle, *, count: Range | int | None = None, article: bool = False) -> str:
-        body = self.describe_head(ctx, count=count, article=article) + self.describe_tail(ctx)
-        if self._has_custom_pool():
-            members = " and ".join(
-                item.value.describe(ctx, count=self.count.value)
-                for item in self.pool
-                if item.value is not None
-            )
-            verb = "consist" if self.is_plural(count) else "consists"
-            body += f" that {verb} of {self.count.value.describe()} {members}"
-        return body
